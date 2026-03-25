@@ -1,0 +1,261 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// CATALOGUE
+// ─────────────────────────────────────────────
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now())
+  products  Product[]
+  partners  Partner[] @relation("PartnerCategories")
+}
+
+model Product {
+  id         String      @id @default(uuid())
+  name       String
+  price      Int
+  imageUrl   String?
+  categoryId String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  category   Category    @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+}
+
+// ─────────────────────────────────────────────
+// COMMANDES
+// ─────────────────────────────────────────────
+
+model Order {
+  id           String      @id @default(uuid())
+  status       OrderStatus @default(PENDING)
+  city         String
+  quarter      String
+  deliveryFee  Int         @default(500)
+  totalPrice   Int
+  customerName String?
+  customerPhone String?
+  note         String?
+  partnerId    String?
+  partner      Partner?    @relation(fields: [partnerId], references: [id])
+  items        OrderItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model OrderItem {
+  id               String   @id @default(uuid())
+  orderId          String
+  productId        String?
+  partnerProductId String?
+  quantity         Int
+  unitPrice        Int
+
+  order          Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product?         @relation(fields: [productId], references: [id])
+  partnerProduct PartnerProduct?  @relation(fields: [partnerProductId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([partnerProductId])
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  DELIVERING
+  DELIVERED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// SERVICES À DOMICILE
+// ─────────────────────────────────────────────
+
+model ServiceRequest {
+  id          String               @id @default(uuid())
+  service     String
+  city        String
+  quarter     String
+  description String?
+  customerName  String?
+  customerPhone String?
+  status      ServiceRequestStatus @default(PENDING)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+enum ServiceRequestStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// OPPORTUNITÉS
+// ─────────────────────────────────────────────
+
+model Opportunity {
+  id          String              @id @default(uuid())
+  title       String
+  slug        String              @unique
+  category    OpportunityCategory @default(IMMOBILIER)
+  location    String
+  description String
+  price       String?
+  badge       String?
+  details     String[]
+  imageUrl    String?
+  contact     String
+  isPublished Boolean             @default(false)
+  isExternal  Boolean             @default(false)
+  sourceUrl   String?
+  sourceName  String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  interests   OpportunityInterest[]
+}
+
+enum OpportunityCategory {
+  IMMOBILIER
+  EMPLOI
+  SERVICE
+  COMMERCE
+  FORMATION
+}
+
+model OpportunityInterest {
+  id            String      @id @default(uuid())
+  opportunityId String
+  name          String
+  phone         String
+  message       String?
+  createdAt     DateTime    @default(now())
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+}
+
+// Publication d'annonce (en attente de modération)
+model OpportunitySubmission {
+  id          String              @id @default(uuid())
+  title       String
+  category    OpportunityCategory
+  location    String
+  description String
+  price       String?
+  contact     String
+  status      SubmissionStatus    @default(PENDING)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─────────────────────────────────────────────
+// PARTENAIRES
+// ─────────────────────────────────────────────
+
+model Partner {
+  id                 String    @id @default(uuid())
+  slug               String?   @unique
+  type               String
+  name               String
+  city               String
+  zone               String?
+  message            String?
+  contact            String
+  isActive           Boolean   @default(false)
+  serviceCategories  String[]  @default([])
+  profileImageUrl    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  categories Category[]     @relation("PartnerCategories")
+  orders     Order[]
+  products   PartnerProduct[]
+  token      PartnerToken?
+}
+
+// Token d'accès au Partner Portal (sans JWT complet)
+model PartnerToken {
+  id        String   @id @default(uuid())
+  token     String   @unique @default(uuid())
+  partnerId String   @unique
+  createdAt DateTime @default(now())
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+}
+
+// Produits gérés par le partenaire lui-même
+model PartnerProduct {
+  id          String   @id @default(uuid())
+  partnerId   String
+  name        String
+  price       Int
+  category    String   @default("plat")
+  description String?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+
+  @@index([partnerId])
+  @@index([isActive])
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS (dashboard temps réel)
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  type      NotificationType
+  title     String
+  body      String
+  entityId  String?          // orderId / serviceRequestId / etc.
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+enum NotificationType {
+  NEW_ORDER
+  ORDER_STATUS_CHANGED
+  NEW_SERVICE_REQUEST
+  NEW_OPPORTUNITY_INTEREST
+  NEW_OPPORTUNITY_SUBMISSION
+  NEW_PARTNER
+}
+
+// ─────────────────────────────────────────────
+// ADMIN (authentification dashboard)
+// ─────────────────────────────────────────────
+
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String   @default("Admin")
+  role         AdminRole @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+}
