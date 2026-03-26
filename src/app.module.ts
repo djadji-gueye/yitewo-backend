@@ -12,6 +12,7 @@ import { AuthModule } from './auth/auth.module';
 import { ScraperModule } from './scraper/scraper.module';
 import { PartnerPortalModule } from './partner-portal/partner-portal.module';
 import { PartnerProductsModule } from './partner-products/partner-products.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -26,7 +27,9 @@ import { PartnerProductsModule } from './partner-products/partner-products.modul
     NotificationsModule,
     AuthModule,
     ScraperModule,
+    PartnerPortalModule,
     PartnerProductsModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
