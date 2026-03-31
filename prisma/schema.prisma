@@ -177,6 +177,7 @@ model Partner {
   name               String
   city               String
   zone               String?
+  address            String? 
   message            String?
   contact            String
   isActive           Boolean   @default(false)

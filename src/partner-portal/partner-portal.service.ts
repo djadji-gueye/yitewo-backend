@@ -14,7 +14,7 @@ export class PartnerPortalService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-  ) {}
+  ) { }
 
   // ── Vérifie le token et retourne le partenaire ────────────
   private async verifyToken(token: string) {
@@ -25,6 +25,7 @@ export class PartnerPortalService {
           select: {
             id: true, name: true, slug: true, city: true,
             zone: true, type: true, isActive: true, contact: true,
+            profileImageUrl: true, address: true,
           },
         },
       },
@@ -99,10 +100,10 @@ export class PartnerPortalService {
 
     return this.prisma.partnerProduct.create({
       data: {
-        partnerId:   partner.id,
-        name:        dto.name,
-        price:       dto.price,
-        category:    dto.category ?? 'plat',
+        partnerId: partner.id,
+        name: dto.name,
+        price: dto.price,
+        category: dto.category ?? 'plat',
         description: dto.description,
         imageUrl,
       },
@@ -121,12 +122,12 @@ export class PartnerPortalService {
     return this.prisma.partnerProduct.update({
       where: { id },
       data: {
-        ...(dto.name        && { name: dto.name }),
-        ...(dto.price       && { price: dto.price }),
-        ...(dto.category    && { category: dto.category }),
+        ...(dto.name && { name: dto.name }),
+        ...(dto.price && { price: dto.price }),
+        ...(dto.category && { category: dto.category }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.imageUrl    !== undefined && { imageUrl: dto.imageUrl || this.generateImageUrl(product.name) }),
-        ...(dto.isActive    !== undefined && { isActive: dto.isActive }),
+        ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl || this.generateImageUrl(product.name) }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });
   }
@@ -166,7 +167,7 @@ export class PartnerPortalService {
       include: {
         items: {
           include: {
-            product:        { select: { id: true, name: true } },
+            product: { select: { id: true, name: true } },
           },
         },
       },
@@ -221,6 +222,32 @@ export class PartnerPortalService {
       activeProducts,
       totalRevenue: revenue._sum.totalPrice ?? 0,
     };
+  }
+
+
+  // ── Mise à jour profil partenaire (via token) ─────────────
+  async updateProfile(token: string, data: {
+    zone?: string;
+    city?: string;
+    profileImageUrl?: string;
+    address?: string;
+  }) {
+    const partner = await this.verifyToken(token);
+
+    return this.prisma.partner.update({
+      where: { id: partner.id },
+      data: {
+        ...(data.zone !== undefined && { zone: data.zone }),
+        ...(data.city !== undefined && { city: data.city }),
+        ...(data.profileImageUrl !== undefined && { profileImageUrl: data.profileImageUrl }),
+        ...(data.address !== undefined && { address: data.address }),
+      },
+      select: {
+        id: true, name: true, slug: true, city: true,
+        zone: true, type: true, contact: true,
+        profileImageUrl: true, address: true,
+      },
+    });
   }
 
   // ── Génère URL image via Pollinations (sans stockage) ─────

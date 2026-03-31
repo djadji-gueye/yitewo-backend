@@ -66,6 +66,16 @@ export class PartnerPortalController {
     return this.service.deleteProduct(id, token);
   }
 
+
+  // Mise à jour profil partenaire (zone, ville, photo, adresse)
+  @Patch('partners/portal/:token/profile')
+  updateProfile(
+    @Param('token') token: string,
+    @Body() body: { zone?: string; city?: string; profileImageUrl?: string; address?: string },
+  ) {
+    return this.service.updateProfile(token, body);
+  }
+
   // ══ ADMIN — Gestion des tokens ════════════════════════════
 
   // Générer/obtenir le token d'un partenaire
