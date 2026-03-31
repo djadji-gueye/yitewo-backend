@@ -1,2 +1,0 @@
-ALTER TABLE "Partner"
-  ADD COLUMN IF NOT EXISTS "address" TEXT;
