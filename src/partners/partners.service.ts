@@ -74,6 +74,7 @@ export class PartnersService {
         id: true, name: true, slug: true, type: true,
         city: true, zone: true,
         categories: { select: { name: true } },
+        profileImageUrl: true,
       },
       orderBy: { name: 'asc' },
     });
