@@ -19,4 +19,7 @@ export class SubmitOpportunityDto {
 
   @IsString()
   contact: string;
+
+  @IsOptional() @IsString()
+  imageUrl?: string;
 }
