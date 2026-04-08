@@ -17,16 +17,12 @@ export interface FindAllParams {
   maxPrice?: number;
 }
 
-// ── Feature flag : annonces externes ──────────
-// Mettre à true quand les partenariats Expat-Dakar / CoinAfrique sont approuvés
-const EXTERNAL_LISTINGS_ENABLED = false;
-
 @Injectable()
 export class OpportunitiesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-  ) { }
+  ) {}
 
   // ── Public: liste paginée ───────────────────
   async findAll(params: FindAllParams = {}) {
@@ -43,11 +39,6 @@ export class OpportunitiesService {
 
     const where: any = { isPublished: true };
 
-    // Masque les annonces externes si le flag est désactivé
-    if (!EXTERNAL_LISTINGS_ENABLED) {
-      where.isExternal = false;
-    }
-
     if (category && category !== 'ALL') {
       where.category = category as OpportunityCategory;
     }
@@ -56,9 +47,9 @@ export class OpportunitiesService {
     }
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
+        { title:       { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
-        { location: { contains: search, mode: 'insensitive' } },
+        { location:    { contains: search, mode: 'insensitive' } },
       ];
     }
     if (isExternal !== undefined) {
@@ -91,8 +82,8 @@ export class OpportunitiesService {
   findAllAdmin(status?: string) {
     const where: any = {};
     if (status === 'published') where.isPublished = true;
-    if (status === 'draft') where.isPublished = false;
-    if (status === 'external') where.isExternal = true;
+    if (status === 'draft')     where.isPublished = false;
+    if (status === 'external')  where.isExternal  = true;
     return this.prisma.opportunity.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -239,18 +230,18 @@ export class OpportunitiesService {
 
     return this.prisma.opportunity.create({
       data: {
-        title: data.title,
-        slug: data.slug,
-        category: data.category as any,
-        location: data.location,
+        title:       data.title,
+        slug:        data.slug,
+        category:    data.category as any,
+        location:    data.location,
         description: data.description,
-        price: data.price,
-        imageUrl: data.imageUrl,
-        contact: '',
+        price:       data.price,
+        imageUrl:    data.imageUrl,
+        contact:     '',
         isPublished: true,
-        isExternal: true,
-        sourceUrl: data.sourceUrl,
-        sourceName: data.sourceName,
+        isExternal:  true,
+        sourceUrl:   data.sourceUrl,
+        sourceName:  data.sourceName,
       },
     });
   }

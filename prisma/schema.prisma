@@ -177,18 +177,65 @@ model Partner {
   name               String
   city               String
   zone               String?
-  address            String? 
   message            String?
   contact            String
   isActive           Boolean   @default(false)
   serviceCategories  String[]  @default([])
+  address            String?
   profileImageUrl    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   categories Category[]     @relation("PartnerCategories")
   orders     Order[]
   products   PartnerProduct[]
-  token      PartnerToken?
+  token        PartnerToken?
+  followers    PartnerFollow[]
+  reviews      PartnerReview[]
+  promos       PartnerPromo[]
+}
+
+// ── Followers (Suivre une boutique) ────────────────────────
+model PartnerFollow {
+  id        String   @id @default(uuid())
+  partnerId String
+  phone     String
+  name      String?
+  createdAt DateTime @default(now())
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, phone])
+  @@index([partnerId])
+}
+
+// ── Reviews (Notes & avis) ─────────────────────────────────
+model PartnerReview {
+  id        String   @id @default(uuid())
+  partnerId String
+  orderId   String?  @unique
+  rating    Int      // 1-5
+  comment   String?
+  phone     String?
+  name      String?
+  createdAt DateTime @default(now())
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId])
+}
+
+// ── Promos flash ───────────────────────────────────────────
+model PartnerPromo {
+  id          String   @id @default(uuid())
+  partnerId   String
+  title       String   // "🔥 -20% sur tout le menu"
+  description String?
+  discount    Int?     // pourcentage
+  endsAt      DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId])
+  @@index([isActive])
 }
 
 // Token d'accès au Partner Portal (sans JWT complet)
