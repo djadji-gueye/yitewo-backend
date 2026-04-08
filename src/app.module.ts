@@ -12,6 +12,7 @@ import { AuthModule } from './auth/auth.module';
 import { ScraperModule } from './scraper/scraper.module';
 import { PartnerPortalModule } from './partner-portal/partner-portal.module';
 import { PartnerProductsModule } from './partner-products/partner-products.module';
+import { SocialModule } from './social/social.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { HealthModule } from './health/health.module';
     ScraperModule,
     PartnerPortalModule,
     PartnerProductsModule,
+    SocialModule,
     HealthModule,
   ],
 })

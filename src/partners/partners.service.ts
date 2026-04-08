@@ -63,8 +63,8 @@ export class PartnersService {
   }
 
   // ── Liste publique marchands/restaurants (page /order) ──
-  findPublicShop() {
-    return this.prisma.partner.findMany({
+  async findPublicShop() {
+    const partners = await this.prisma.partner.findMany({
       where: {
         isActive: true,
         type: { in: ['Marchand', 'Restaurant'] },
@@ -72,11 +72,47 @@ export class PartnersService {
       },
       select: {
         id: true, name: true, slug: true, type: true,
-        city: true, zone: true,
+        city: true, zone: true, profileImageUrl: true,
         categories: { select: { name: true } },
-        profileImageUrl: true,
+        _count: { select: { followers: true } },
+        reviews: {
+          select: { rating: true },
+        },
+        promos: {
+          where: { isActive: true, endsAt: { gt: new Date() } },
+          select: { title: true, discount: true, endsAt: true },
+          take: 1,
+        },
       },
-      orderBy: { name: 'asc' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return partners.map((p) => {
+      const ratings = p.reviews.map((r) => r.rating);
+      const avgRating = ratings.length
+        ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+        : null;
+
+      const badge =
+        avgRating && avgRating >= 4.5 && ratings.length >= 5 ? 'top' :
+        p._count.followers >= 20 ? 'popular' :
+        ratings.length >= 3 ? 'trusted' : null;
+
+      return {
+        id:             p.id,
+        name:           p.name,
+        slug:           p.slug,
+        type:           p.type,
+        city:           p.city,
+        zone:           p.zone,
+        profileImageUrl:p.profileImageUrl,
+        categories:     p.categories,
+        followers:      p._count.followers,
+        avgRating,
+        reviewCount:    ratings.length,
+        badge,
+        promo:          p.promos[0] || null,
+      };
     });
   }
 
