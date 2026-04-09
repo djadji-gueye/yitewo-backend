@@ -140,6 +140,61 @@ export class PartnersService {
     });
   }
 
+  // ── Carte boutiques (avec coordonnées Nominatim si address présente) ──
+  async findForMap() {
+    const partners = await this.prisma.partner.findMany({
+      where: { isActive: true, type: { in: ['Marchand', 'Restaurant'] }, slug: { not: null } },
+      select: {
+        id: true, name: true, slug: true, type: true,
+        city: true, zone: true, address: true,
+        profileImageUrl: true,
+        categories: { select: { name: true } },
+        _count: { select: { followers: true } },
+        reviews: { select: { rating: true } },
+        promos: {
+          where: { isActive: true, endsAt: { gt: new Date() } },
+          select: { title: true, discount: true },
+          take: 1,
+        },
+      },
+    });
+
+    return partners.map((p) => {
+      const ratings   = p.reviews.map((r) => r.rating);
+      const avgRating = ratings.length
+        ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+        : null;
+
+      // Coordonnées par défaut selon la ville (centroïdes approximatifs)
+      const DEFAULT_COORDS: Record<string, [number, number]> = {
+        'Dakar':       [14.6937, -17.4441],
+        'Saint-Louis': [16.0326,  -16.4818],
+        'Thiès':       [14.7910,  -16.9359],
+        'Ziguinchor':  [12.5586,  -16.2719],
+      };
+      const [lat, lng] = DEFAULT_COORDS[p.city] || DEFAULT_COORDS['Dakar'];
+
+      return {
+        id:             p.id,
+        name:           p.name,
+        slug:           p.slug,
+        type:           p.type,
+        city:           p.city,
+        zone:           p.zone,
+        address:        p.address,
+        profileImageUrl:p.profileImageUrl,
+        categories:     p.categories,
+        followers:      p._count.followers,
+        avgRating,
+        reviewCount:    ratings.length,
+        promo:          p.promos[0] || null,
+        // Coordonnées — le frontend affinera via Nominatim si address présente
+        lat,
+        lng,
+      };
+    });
+  }
+
   updatePartner(id: string, data: { isActive?: boolean; profileImageUrl?: string }) {
     return this.prisma.partner.update({ where: { id }, data });
   }

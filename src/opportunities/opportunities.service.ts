@@ -22,7 +22,7 @@ export class OpportunitiesService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-  ) {}
+  ) { }
 
   // ── Public: liste paginée ───────────────────
   async findAll(params: FindAllParams = {}) {
@@ -47,13 +47,17 @@ export class OpportunitiesService {
     }
     if (search) {
       where.OR = [
-        { title:       { contains: search, mode: 'insensitive' } },
+        { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
-        { location:    { contains: search, mode: 'insensitive' } },
+        { location: { contains: search, mode: 'insensitive' } },
       ];
     }
     if (isExternal !== undefined) {
       where.isExternal = isExternal;
+    }
+    // pour ne garder que les internes le temps d avoir l accord des sites externe expat-dakar ..
+    else {
+      where.isExternal = false; // défaut = interne
     }
 
     const [items, total] = await this.prisma.$transaction([
@@ -82,8 +86,8 @@ export class OpportunitiesService {
   findAllAdmin(status?: string) {
     const where: any = {};
     if (status === 'published') where.isPublished = true;
-    if (status === 'draft')     where.isPublished = false;
-    if (status === 'external')  where.isExternal  = true;
+    if (status === 'draft') where.isPublished = false;
+    if (status === 'external') where.isExternal = true;
     return this.prisma.opportunity.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -230,18 +234,18 @@ export class OpportunitiesService {
 
     return this.prisma.opportunity.create({
       data: {
-        title:       data.title,
-        slug:        data.slug,
-        category:    data.category as any,
-        location:    data.location,
+        title: data.title,
+        slug: data.slug,
+        category: data.category as any,
+        location: data.location,
         description: data.description,
-        price:       data.price,
-        imageUrl:    data.imageUrl,
-        contact:     '',
+        price: data.price,
+        imageUrl: data.imageUrl,
+        contact: '',
         isPublished: true,
-        isExternal:  true,
-        sourceUrl:   data.sourceUrl,
-        sourceName:  data.sourceName,
+        isExternal: true,
+        sourceUrl: data.sourceUrl,
+        sourceName: data.sourceName,
       },
     });
   }

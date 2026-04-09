@@ -31,6 +31,9 @@ export class PartnersController {
   }
 
   // Liste publique marchands/restaurants (page /order)
+  @Get('public/map')
+  findForMap() { return this.service.findForMap(); }
+
   @Get('public/shop')
   findPublicShop() { return this.service.findPublicShop(); }
 
