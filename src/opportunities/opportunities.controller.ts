@@ -9,7 +9,7 @@ import { CreateInterestDto } from './dto/create-interest.dto';
 
 @Controller('opportunities')
 export class OpportunitiesController {
-  constructor(private service: OpportunitiesService) { }
+  constructor(private service: OpportunitiesService) {}
 
   // ══ ADMIN routes first (before parametric routes) ══
 
@@ -39,16 +39,16 @@ export class OpportunitiesController {
 
   @Get()
   findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('category') category?: string,
-    @Query('city') city?: string,
-    @Query('search') search?: string,
+    @Query('page')       page?: string,
+    @Query('limit')      limit?: string,
+    @Query('category')   category?: string,
+    @Query('city')       city?: string,
+    @Query('search')     search?: string,
     @Query('isExternal') isExternal?: string,
   ) {
     const params: FindAllParams = {
-      page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 12,
+      page:       page     ? Number(page)  : 1,
+      limit:      limit    ? Number(limit) : 12,
       category,
       city,
       search,

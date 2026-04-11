@@ -66,6 +66,16 @@ export class PartnerPortalController {
     return this.service.deleteProduct(id, token);
   }
 
+  @Patch('partners/portal/:token/profile')
+  updateProfile(
+    @Param('token') token: string,
+    @Body() body: {
+      zone?: string; city?: string;
+      profileImageUrl?: string; bannerUrl?: string;
+      address?: string; lat?: number; lng?: number;
+    },
+  ) { return this.service.updateProfile(token, body); }
+
   // ══ ADMIN — Gestion des tokens ════════════════════════════
 
   // Générer/obtenir le token d'un partenaire

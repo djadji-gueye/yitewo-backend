@@ -29,6 +29,10 @@ export class PartnersService {
       zone: data.zone, contact: data.contact, message: data.message,
       slug, isActive: data.isActive ?? false,
       profileImageUrl: data.profileImageUrl ?? null,
+      ...(data.bannerUrl  && { bannerUrl: data.bannerUrl }),
+      ...(data.address    && { address:   data.address }),
+      ...(data.lat        && { lat:        data.lat }),
+      ...(data.lng        && { lng:        data.lng }),
     };
 
     if (data.type === 'Marchand' && data.categories?.length) {
@@ -72,7 +76,7 @@ export class PartnersService {
       },
       select: {
         id: true, name: true, slug: true, type: true,
-        city: true, zone: true, profileImageUrl: true,
+        city: true, zone: true, profileImageUrl: true, bannerUrl: true,
         categories: { select: { name: true } },
         _count: { select: { followers: true } },
         reviews: {
@@ -112,6 +116,7 @@ export class PartnersService {
         reviewCount:    ratings.length,
         badge,
         promo:          p.promos[0] || null,
+        bannerUrl:      (p as any).bannerUrl || null,
       };
     });
   }
@@ -136,7 +141,7 @@ export class PartnersService {
   async findBySlug(slug: string) {
     return this.prisma.partner.findFirst({
       where: { slug, isActive: true },
-      select: { id: true, name: true, contact: true, city: true },
+      select: { id: true, name: true, contact: true, city: true, bannerUrl: true, address: true, lat: true, lng: true },
     });
   }
 
@@ -146,7 +151,7 @@ export class PartnersService {
       where: { isActive: true, type: { in: ['Marchand', 'Restaurant'] }, slug: { not: null } },
       select: {
         id: true, name: true, slug: true, type: true,
-        city: true, zone: true, address: true,
+        city: true, zone: true, address: true, lat: true, lng: true, bannerUrl: true,
         profileImageUrl: true,
         categories: { select: { name: true } },
         _count: { select: { followers: true } },
@@ -165,14 +170,16 @@ export class PartnersService {
         ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
         : null;
 
-      // Coordonnées par défaut selon la ville (centroïdes approximatifs)
+      // Utilise les vraies coordonnées si disponibles, sinon centroïde de la ville
       const DEFAULT_COORDS: Record<string, [number, number]> = {
         'Dakar':       [14.6937, -17.4441],
-        'Saint-Louis': [16.0326,  -16.4818],
-        'Thiès':       [14.7910,  -16.9359],
-        'Ziguinchor':  [12.5586,  -16.2719],
+        'Saint-Louis': [16.0326, -16.4818],
+        'Thiès':       [14.7910, -16.9359],
+        'Ziguinchor':  [12.5586, -16.2719],
       };
-      const [lat, lng] = DEFAULT_COORDS[p.city] || DEFAULT_COORDS['Dakar'];
+      const [defLat, defLng] = DEFAULT_COORDS[p.city] || DEFAULT_COORDS['Dakar'];
+      const lat = (p as any).lat ?? defLat;
+      const lng = (p as any).lng ?? defLng;
 
       return {
         id:             p.id,
@@ -188,6 +195,7 @@ export class PartnersService {
         avgRating,
         reviewCount:    ratings.length,
         promo:          p.promos[0] || null,
+        bannerUrl:      (p as any).bannerUrl || null,
         // Coordonnées — le frontend affinera via Nominatim si address présente
         lat,
         lng,
@@ -195,7 +203,16 @@ export class PartnersService {
     });
   }
 
-  updatePartner(id: string, data: { isActive?: boolean; profileImageUrl?: string }) {
+  updatePartner(id: string, data: {
+    isActive?: boolean;
+    profileImageUrl?: string;
+    bannerUrl?: string;
+    address?: string;
+    lat?: number;
+    lng?: number;
+    zone?: string;
+    city?: string;
+  }) {
     return this.prisma.partner.update({ where: { id }, data });
   }
 
@@ -203,7 +220,7 @@ export class PartnersService {
   async getPublicProducts(slug: string) {
     const partner = await this.prisma.partner.findFirst({
       where: { slug, isActive: true },
-      select: { id: true, name: true, city: true, contact: true, slug: true },
+      select: { id: true, name: true, city: true, contact: true, slug: true, bannerUrl: true, address: true },
     });
     if (!partner) return { partner: null, products: [] };
 

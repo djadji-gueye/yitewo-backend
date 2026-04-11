@@ -5,7 +5,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 // ─────────────────────────────────────────────
@@ -183,6 +182,9 @@ model Partner {
   isActive           Boolean   @default(false)
   serviceCategories  String[]  @default([])
   address            String?
+  lat                Float?
+  lng                Float?
+  bannerUrl          String?
   profileImageUrl    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

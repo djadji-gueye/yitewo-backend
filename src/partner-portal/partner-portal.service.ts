@@ -25,6 +25,7 @@ export class PartnerPortalService {
           select: {
             id: true, name: true, slug: true, city: true,
             zone: true, type: true, isActive: true, contact: true,
+            profileImageUrl: true, bannerUrl: true, address: true, lat: true, lng: true,
           },
         },
       },
@@ -221,6 +222,34 @@ export class PartnerPortalService {
       activeProducts,
       totalRevenue: revenue._sum.totalPrice ?? 0,
     };
+  }
+
+
+  // ── Mise à jour profil partenaire ────────────────────────
+  async updateProfile(token: string, data: {
+    zone?: string; city?: string;
+    profileImageUrl?: string; bannerUrl?: string;
+    address?: string; lat?: number; lng?: number;
+  }) {
+    const partner = await this.verifyToken(token);
+    return this.prisma.partner.update({
+      where: { id: partner.id },
+      data: {
+        ...(data.zone            !== undefined && { zone: data.zone }),
+        ...(data.city            !== undefined && { city: data.city }),
+        ...(data.profileImageUrl !== undefined && { profileImageUrl: data.profileImageUrl }),
+        ...(data.bannerUrl       !== undefined && { bannerUrl: data.bannerUrl }),
+        ...(data.address         !== undefined && { address: data.address }),
+        ...(data.lat             !== undefined && { lat: data.lat }),
+        ...(data.lng             !== undefined && { lng: data.lng }),
+      },
+      select: {
+        id: true, name: true, slug: true, city: true, zone: true,
+        type: true, contact: true, isActive: true,
+        profileImageUrl: true, bannerUrl: true,
+        address: true, lat: true, lng: true,
+      },
+    });
   }
 
   // ── Génère URL image via Pollinations (sans stockage) ─────

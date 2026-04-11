@@ -37,6 +37,20 @@ export class CreatePartnerDto {
     @IsOptional()
     @IsString()
     profileImageUrl?: string;
+
+    @IsOptional()
+    @IsString()
+    bannerUrl?: string;
+
+    @IsOptional()
+    @IsString()
+    address?: string;
+
+    @IsOptional()
+    lat?: number;
+
+    @IsOptional()
+    lng?: number;
     @IsOptional()
     @IsArray()
     categories?: string[];

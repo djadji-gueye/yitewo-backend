@@ -66,7 +66,7 @@ export class PartnersController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
-  updatePartner(@Param('id') id: string, @Body() body: { isActive?: boolean; profileImageUrl?: string }) {
+  updatePartner(@Param('id') id: string, @Body() body: { isActive?: boolean; profileImageUrl?: string; bannerUrl?: string; address?: string; lat?: number; lng?: number; zone?: string; city?: string }) {
     return this.service.updatePartner(id, body);
   }
 

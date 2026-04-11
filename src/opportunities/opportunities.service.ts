@@ -54,10 +54,10 @@ export class OpportunitiesService {
     }
     if (isExternal !== undefined) {
       where.isExternal = isExternal;
-    }
-    // pour ne garder que les internes le temps d avoir l accord des sites externe expat-dakar ..
-    else {
-      where.isExternal = false; // défaut = interne
+    } else
+    // desactiver Extern Expat, coinAfrique
+    {
+      where.isExternal = false;
     }
 
     const [items, total] = await this.prisma.$transaction([
