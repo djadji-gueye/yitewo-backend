@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") 
 }
 
 // ─────────────────────────────────────────────
@@ -118,6 +119,7 @@ model Opportunity {
   badge       String?
   details     String[]
   imageUrl    String?
+  imageUrls   String[]  @default([])
   contact     String
   isPublished Boolean             @default(false)
   isExternal  Boolean             @default(false)
@@ -156,8 +158,11 @@ model OpportunitySubmission {
   price       String?
   contact     String
   status      SubmissionStatus    @default(PENDING)
+  imageUrl    String?                 
+  imageUrls   String[]  @default([])
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+  
 }
 
 enum SubmissionStatus {
