@@ -29,10 +29,10 @@ export class PartnersService {
       zone: data.zone, contact: data.contact, message: data.message,
       slug, isActive: data.isActive ?? false,
       profileImageUrl: data.profileImageUrl ?? null,
-      ...(data.bannerUrl  && { bannerUrl: data.bannerUrl }),
-      ...(data.address    && { address:   data.address }),
-      ...(data.lat        && { lat:        data.lat }),
-      ...(data.lng        && { lng:        data.lng }),
+      ...(data.bannerUrl && { bannerUrl: data.bannerUrl }),
+      ...(data.address && { address: data.address }),
+      ...(data.lat && { lat: data.lat }),
+      ...(data.lng && { lng: data.lng }),
     };
 
     if (data.type === 'Marchand' && data.categories?.length) {
@@ -76,7 +76,7 @@ export class PartnersService {
       },
       select: {
         id: true, name: true, slug: true, type: true,
-        city: true, zone: true, profileImageUrl: true, bannerUrl: true,
+        city: true, zone: true, profileImageUrl: true, bannerUrl: true, updatedAt: true,
         categories: { select: { name: true } },
         _count: { select: { followers: true } },
         reviews: {
@@ -99,24 +99,25 @@ export class PartnersService {
 
       const badge =
         avgRating && avgRating >= 4.5 && ratings.length >= 5 ? 'top' :
-        p._count.followers >= 20 ? 'popular' :
-        ratings.length >= 3 ? 'trusted' : null;
+          p._count.followers >= 20 ? 'popular' :
+            ratings.length >= 3 ? 'trusted' : null;
 
       return {
-        id:             p.id,
-        name:           p.name,
-        slug:           p.slug,
-        type:           p.type,
-        city:           p.city,
-        zone:           p.zone,
-        profileImageUrl:p.profileImageUrl,
-        categories:     p.categories,
-        followers:      p._count.followers,
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        type: p.type,
+        city: p.city,
+        zone: p.zone,
+        profileImageUrl: p.profileImageUrl,
+        categories: p.categories,
+        followers: p._count.followers,
         avgRating,
-        reviewCount:    ratings.length,
+        reviewCount: ratings.length,
         badge,
-        promo:          p.promos[0] || null,
-        bannerUrl:      (p as any).bannerUrl || null,
+        promo: p.promos[0] || null,
+        bannerUrl: (p as any).bannerUrl || null,
+        updatedAt: p.updatedAt,
       };
     });
   }
@@ -165,37 +166,37 @@ export class PartnersService {
     });
 
     return partners.map((p) => {
-      const ratings   = p.reviews.map((r) => r.rating);
+      const ratings = p.reviews.map((r) => r.rating);
       const avgRating = ratings.length
         ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
         : null;
 
       // Utilise les vraies coordonnées si disponibles, sinon centroïde de la ville
       const DEFAULT_COORDS: Record<string, [number, number]> = {
-        'Dakar':       [14.6937, -17.4441],
+        'Dakar': [14.6937, -17.4441],
         'Saint-Louis': [16.0326, -16.4818],
-        'Thiès':       [14.7910, -16.9359],
-        'Ziguinchor':  [12.5586, -16.2719],
+        'Thiès': [14.7910, -16.9359],
+        'Ziguinchor': [12.5586, -16.2719],
       };
       const [defLat, defLng] = DEFAULT_COORDS[p.city] || DEFAULT_COORDS['Dakar'];
       const lat = (p as any).lat ?? defLat;
       const lng = (p as any).lng ?? defLng;
 
       return {
-        id:             p.id,
-        name:           p.name,
-        slug:           p.slug,
-        type:           p.type,
-        city:           p.city,
-        zone:           p.zone,
-        address:        p.address,
-        profileImageUrl:p.profileImageUrl,
-        categories:     p.categories,
-        followers:      p._count.followers,
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        type: p.type,
+        city: p.city,
+        zone: p.zone,
+        address: p.address,
+        profileImageUrl: p.profileImageUrl,
+        categories: p.categories,
+        followers: p._count.followers,
         avgRating,
-        reviewCount:    ratings.length,
-        promo:          p.promos[0] || null,
-        bannerUrl:      (p as any).bannerUrl || null,
+        reviewCount: ratings.length,
+        promo: p.promos[0] || null,
+        bannerUrl: (p as any).bannerUrl || null,
         // Coordonnées — le frontend affinera via Nominatim si address présente
         lat,
         lng,
