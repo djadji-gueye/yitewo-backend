@@ -14,11 +14,13 @@ import { PartnerPortalModule } from './partner-portal/partner-portal.module';
 import { PartnerProductsModule } from './partner-products/partner-products.module';
 import { SocialModule } from './social/social.module';
 import { HealthModule } from './health/health.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
     PrismaModule,
     CategoriesModule,
+    UploadModule,
     ProductsModule,
     CloudinaryModule,
     PartnersModule,
@@ -34,4 +36,4 @@ import { HealthModule } from './health/health.module';
     HealthModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }
