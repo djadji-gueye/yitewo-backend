@@ -189,6 +189,7 @@ model Partner {
   address            String?
   lat                Float?
   lng                Float?
+  email              String?
   bannerUrl          String?
   profileImageUrl    String?
   createdAt          DateTime  @default(now())

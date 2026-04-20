@@ -54,5 +54,10 @@ export class CreatePartnerDto {
     @IsOptional()
     @IsArray()
     categories?: string[];
+
+    // Email pour notifications
+    @IsOptional()
+    @IsString()
+    email?: string;
 }
 // Ajout pour les prestataires de services
