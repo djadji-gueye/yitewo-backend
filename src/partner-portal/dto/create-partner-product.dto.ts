@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsOptional, IsBoolean, Min } from 'class-validator';
+import { IsString, IsInt, IsOptional, IsBoolean, IsArray, Min } from 'class-validator';
 
 export class CreatePartnerProductDto {
   @IsString()
@@ -15,6 +15,9 @@ export class CreatePartnerProductDto {
 
   @IsOptional() @IsString()
   imageUrl?: string;
+
+  @IsOptional() @IsArray()
+  imageUrls?: string[];
 
   @IsString()
   token: string; // portal token for auth

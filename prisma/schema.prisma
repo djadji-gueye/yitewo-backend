@@ -264,6 +264,7 @@ model PartnerProduct {
   category    String   @default("plat")
   description String?
   imageUrl    String?
+  imageUrls   String[]
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

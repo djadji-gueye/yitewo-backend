@@ -5,7 +5,7 @@ import { UpdatePartnerProductDto } from './dto/update-partner-product.dto';
 
 @Injectable()
 export class PartnerProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   // ── Vérifie le token et retourne le partnerId ─────────────
   private async verifyToken(token: string): Promise<string> {
@@ -22,7 +22,7 @@ export class PartnerProductsService {
     const partnerId = await this.verifyToken(token);
     return this.prisma.partnerProduct.findMany({
       where: { partnerId },
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      orderBy: [{ category: 'asc' }, { name: 'asc' }, { createdAt: 'desc' }],
     });
   }
 
@@ -37,11 +37,11 @@ export class PartnerProductsService {
     return this.prisma.partnerProduct.create({
       data: {
         partnerId,
-        name:        dto.name,
-        price:       dto.price,
-        category:    dto.category   ?? 'plat',
+        name: dto.name,
+        price: dto.price,
+        category: dto.category ?? 'plat',
         description: dto.description,
-        imageUrl:    dto.imageUrl,
+        imageUrl: dto.imageUrl,
       },
     });
   }
@@ -58,12 +58,12 @@ export class PartnerProductsService {
     return this.prisma.partnerProduct.update({
       where: { id },
       data: {
-        ...(dto.name        !== undefined && { name: dto.name }),
-        ...(dto.price       !== undefined && { price: dto.price }),
-        ...(dto.category    !== undefined && { category: dto.category }),
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.price !== undefined && { price: dto.price }),
+        ...(dto.category !== undefined && { category: dto.category }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.imageUrl    !== undefined && { imageUrl: dto.imageUrl }),
-        ...(dto.isActive    !== undefined && { isActive: dto.isActive }),
+        ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });
   }
@@ -99,7 +99,7 @@ export class PartnerProductsService {
 
     const products = await this.prisma.partnerProduct.findMany({
       where: { partnerId: partner.id, isActive: true },
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      orderBy: [{ category: 'asc' }, { name: 'asc' }, { createdAt: 'desc' }],
     });
 
     return { partner, products };

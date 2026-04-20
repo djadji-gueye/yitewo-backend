@@ -14,7 +14,7 @@ export class PartnerPortalService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-  ) {}
+  ) { }
 
   // ── Vérifie le token et retourne le partenaire ────────────
   private async verifyToken(token: string) {
@@ -96,16 +96,18 @@ export class PartnerPortalService {
     }
 
     // Image par défaut via Pollinations si non fournie
-    const imageUrl = dto.imageUrl || this.generateImageUrl(dto.name);
+    const imageUrls = dto.imageUrls?.slice(0, 3) ?? [];
+    const imageUrl = dto.imageUrl || imageUrls[0] || this.generateImageUrl(dto.name);
 
     return this.prisma.partnerProduct.create({
       data: {
-        partnerId:   partner.id,
-        name:        dto.name,
-        price:       dto.price,
-        category:    dto.category ?? 'plat',
+        partnerId: partner.id,
+        name: dto.name,
+        price: dto.price,
+        category: dto.category ?? 'plat',
         description: dto.description,
         imageUrl,
+        imageUrls,
       },
     });
   }
@@ -122,12 +124,13 @@ export class PartnerPortalService {
     return this.prisma.partnerProduct.update({
       where: { id },
       data: {
-        ...(dto.name        && { name: dto.name }),
-        ...(dto.price       && { price: dto.price }),
-        ...(dto.category    && { category: dto.category }),
+        ...(dto.name && { name: dto.name }),
+        ...(dto.price && { price: dto.price }),
+        ...(dto.category && { category: dto.category }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.imageUrl    !== undefined && { imageUrl: dto.imageUrl || this.generateImageUrl(product.name) }),
-        ...(dto.isActive    !== undefined && { isActive: dto.isActive }),
+        ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl || this.generateImageUrl(product.name) }),
+        ...(dto.imageUrls !== undefined && { imageUrls: dto.imageUrls.slice(0, 3) }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });
   }
@@ -167,7 +170,7 @@ export class PartnerPortalService {
       include: {
         items: {
           include: {
-            product:        { select: { id: true, name: true } },
+            product: { select: { id: true, name: true } },
           },
         },
       },
@@ -235,13 +238,13 @@ export class PartnerPortalService {
     return this.prisma.partner.update({
       where: { id: partner.id },
       data: {
-        ...(data.zone            !== undefined && { zone: data.zone }),
-        ...(data.city            !== undefined && { city: data.city }),
+        ...(data.zone !== undefined && { zone: data.zone }),
+        ...(data.city !== undefined && { city: data.city }),
         ...(data.profileImageUrl !== undefined && { profileImageUrl: data.profileImageUrl }),
-        ...(data.bannerUrl       !== undefined && { bannerUrl: data.bannerUrl }),
-        ...(data.address         !== undefined && { address: data.address }),
-        ...(data.lat             !== undefined && { lat: data.lat }),
-        ...(data.lng             !== undefined && { lng: data.lng }),
+        ...(data.bannerUrl !== undefined && { bannerUrl: data.bannerUrl }),
+        ...(data.address !== undefined && { address: data.address }),
+        ...(data.lat !== undefined && { lat: data.lat }),
+        ...(data.lng !== undefined && { lng: data.lng }),
       },
       select: {
         id: true, name: true, slug: true, city: true, zone: true,

@@ -109,6 +109,7 @@ export class PartnersService {
         type: p.type,
         city: p.city,
         zone: p.zone,
+        message: p.zone,
         profileImageUrl: p.profileImageUrl,
         categories: p.categories,
         followers: p._count.followers,
@@ -142,7 +143,7 @@ export class PartnersService {
   async findBySlug(slug: string) {
     return this.prisma.partner.findFirst({
       where: { slug, isActive: true },
-      select: { id: true, name: true, contact: true, city: true, bannerUrl: true, address: true, lat: true, lng: true },
+      select: { id: true, name: true, contact: true, city: true, bannerUrl: true, message: true, address: true, lat: true, lng: true },
     });
   }
 
