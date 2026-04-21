@@ -2,13 +2,17 @@ import { BadRequestException, Injectable, NotFoundException, UnauthorizedExcepti
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreatePartnerDto } from './dto/create-partner.dto';
+import { Logger } from '@nestjs/common';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class PartnersService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private email: EmailService,
   ) { }
+  private logger = new Logger(PartnersService.name);
 
   async create(data: CreatePartnerDto) {
     let slug: string | undefined;
@@ -76,7 +80,7 @@ export class PartnersService {
       },
       select: {
         id: true, name: true, slug: true, type: true,
-        city: true, zone: true, profileImageUrl: true, bannerUrl: true, updatedAt: true,
+        city: true, zone: true, profileImageUrl: true, bannerUrl: true,
         categories: { select: { name: true } },
         _count: { select: { followers: true } },
         reviews: {
@@ -109,7 +113,6 @@ export class PartnersService {
         type: p.type,
         city: p.city,
         zone: p.zone,
-        message: p.zone,
         profileImageUrl: p.profileImageUrl,
         categories: p.categories,
         followers: p._count.followers,
@@ -118,7 +121,6 @@ export class PartnersService {
         badge,
         promo: p.promos[0] || null,
         bannerUrl: (p as any).bannerUrl || null,
-        updatedAt: p.updatedAt,
       };
     });
   }
@@ -143,7 +145,7 @@ export class PartnersService {
   async findBySlug(slug: string) {
     return this.prisma.partner.findFirst({
       where: { slug, isActive: true },
-      select: { id: true, name: true, contact: true, city: true, bannerUrl: true, message: true, address: true, lat: true, lng: true },
+      select: { id: true, name: true, contact: true, city: true, bannerUrl: true, address: true, lat: true, lng: true },
     });
   }
 
@@ -205,7 +207,7 @@ export class PartnersService {
     });
   }
 
-  updatePartner(id: string, data: {
+  async updatePartner(id: string, data: {
     isActive?: boolean;
     profileImageUrl?: string;
     bannerUrl?: string;
@@ -214,8 +216,37 @@ export class PartnersService {
     lng?: number;
     zone?: string;
     city?: string;
+    message?: string;
+    email?: string;
   }) {
-    return this.prisma.partner.update({ where: { id }, data });
+    // Récupérer l'état actuel avant la mise à jour
+    const before = await this.prisma.partner.findUnique({
+      where: { id },
+      select: { isActive: true, email: true, name: true, type: true },
+    });
+
+    const updated = await this.prisma.partner.update({ where: { id }, data });
+
+    // Envoi email si vient d'être activé pour la première fois
+    const justActivated = !before?.isActive && data.isActive === true;
+    if (justActivated && before?.email) {
+      const token = await this.prisma.partnerToken.findUnique({ where: { partnerId: id } });
+      const isServiceProvider = before.type === 'Prestataire';
+
+      if (isServiceProvider) {
+        this.email.sendCompteActivePrestataire(before.email, before.name)
+          .catch((e) => this.logger.warn('Email activation presta: ' + e.message));
+      } else {
+        // Générer le token si pas encore créé
+        const portalToken = token?.token ?? (
+          await this.prisma.partnerToken.create({ data: { partnerId: id } })
+        ).token;
+        this.email.sendCompteActive(before.email, before.name, before.type, portalToken)
+          .catch((e) => this.logger.warn('Email activation: ' + e.message));
+      }
+    }
+
+    return updated;
   }
 
   // ── Produits publics d'un partenaire ──────────────────────

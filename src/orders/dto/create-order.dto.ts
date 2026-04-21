@@ -2,6 +2,10 @@ import { IsString, IsInt, IsOptional, IsArray, ValidateNested, Min } from 'class
 import { Type } from 'class-transformer';
 
 export class OrderItemDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
   @IsOptional() @IsString()
   productId?: string;
 

@@ -15,12 +15,14 @@ import { PartnerProductsModule } from './partner-products/partner-products.modul
 import { SocialModule } from './social/social.module';
 import { HealthModule } from './health/health.module';
 import { UploadModule } from './upload/upload.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
     PrismaModule,
     CategoriesModule,
     UploadModule,
+    EmailModule,
     ProductsModule,
     CloudinaryModule,
     PartnersModule,
