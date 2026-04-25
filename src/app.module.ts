@@ -16,6 +16,7 @@ import { SocialModule } from './social/social.module';
 import { HealthModule } from './health/health.module';
 import { UploadModule } from './upload/upload.module';
 import { EmailModule } from './email/email.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { EmailModule } from './email/email.module';
     PartnerProductsModule,
     SocialModule,
     HealthModule,
+    WhatsappModule
   ],
 })
 export class AppModule { }
