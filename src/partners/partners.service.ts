@@ -2,17 +2,13 @@ import { BadRequestException, Injectable, NotFoundException, UnauthorizedExcepti
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreatePartnerDto } from './dto/create-partner.dto';
-import { Logger } from '@nestjs/common';
-import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class PartnersService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-    private email: EmailService,
   ) { }
-  private logger = new Logger(PartnersService.name);
 
   async create(data: CreatePartnerDto) {
     let slug: string | undefined;
@@ -32,19 +28,10 @@ export class PartnersService {
       type: data.type, name: data.name, city: data.city,
       zone: data.zone, contact: data.contact, message: data.message,
       slug, isActive: data.isActive ?? false,
-      profileImageUrl: data.profileImageUrl ?? null,
-      ...(data.bannerUrl && { bannerUrl: data.bannerUrl }),
-      ...(data.address && { address: data.address }),
-      ...(data.lat && { lat: data.lat }),
-      ...(data.lng && { lng: data.lng }),
     };
 
     if (data.type === 'Marchand' && data.categories?.length) {
       partnerData.categories = { connect: data.categories.map((id) => ({ id })) };
-    }
-
-    if (data.type === 'Prestataire' && data.serviceCategories?.length) {
-      partnerData.serviceCategories = data.serviceCategories;
     }
 
     const partner = await this.prisma.partner.create({ data: partnerData });
@@ -67,12 +54,13 @@ export class PartnersService {
     return this.prisma.partner.findMany({
       orderBy: { createdAt: 'desc' },
       include: { categories: { select: { id: true, name: true } } },
+      // plan et planExpiresAt inclus via select *
     });
   }
 
-  // ── Liste publique marchands/restaurants (page /order) ──
-  async findPublicShop() {
-    const partners = await this.prisma.partner.findMany({
+  // ── Liste publique des partenaires actifs (marchands/restaurants) ──
+  findPublicActive() {
+    return this.prisma.partner.findMany({
       where: {
         isActive: true,
         type: { in: ['Marchand', 'Restaurant'] },
@@ -80,180 +68,34 @@ export class PartnersService {
       },
       select: {
         id: true, name: true, slug: true, type: true,
-        city: true, zone: true, profileImageUrl: true, bannerUrl: true,
+        city: true, zone: true, plan: true,
         categories: { select: { name: true } },
-        _count: { select: { followers: true } },
-        reviews: {
-          select: { rating: true },
-        },
-        promos: {
-          where: { isActive: true, endsAt: { gt: new Date() } },
-          select: { title: true, discount: true, endsAt: true },
-          take: 1,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return partners.map((p) => {
-      const ratings = p.reviews.map((r) => r.rating);
-      const avgRating = ratings.length
-        ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
-        : null;
-
-      const badge =
-        avgRating && avgRating >= 4.5 && ratings.length >= 5 ? 'top' :
-          p._count.followers >= 20 ? 'popular' :
-            ratings.length >= 3 ? 'trusted' : null;
-
-      return {
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        type: p.type,
-        city: p.city,
-        zone: p.zone,
-        profileImageUrl: p.profileImageUrl,
-        categories: p.categories,
-        followers: p._count.followers,
-        avgRating,
-        reviewCount: ratings.length,
-        badge,
-        promo: p.promos[0] || null,
-        bannerUrl: (p as any).bannerUrl || null,
-      };
-    });
-  }
-
-  // ── Liste publique prestataires actifs (page /services) ──
-  findPublicActive() {
-    return this.prisma.partner.findMany({
-      where: {
-        isActive: true,
-        type: 'Prestataire',
-      },
-      select: {
-        id: true, name: true, type: true,
-        city: true, zone: true, contact: true, message: true,
-        serviceCategories: true,
-        profileImageUrl: true,
       },
       orderBy: { name: 'asc' },
+    }).then(partners => {
+      const ORDER = { enterprise: 0, business: 1, pro: 2, free: 3 };
+      return partners.sort((a, b) =>
+        (ORDER[(a as any).plan as keyof typeof ORDER] ?? 3) - (ORDER[(b as any).plan as keyof typeof ORDER] ?? 3)
+      );
     });
   }
 
   async findBySlug(slug: string) {
     return this.prisma.partner.findFirst({
       where: { slug, isActive: true },
-      select: { id: true, name: true, contact: true, city: true, bannerUrl: true, address: true, lat: true, lng: true },
+      select: { id: true, name: true, contact: true, city: true },
     });
   }
 
-  // ── Carte boutiques (avec coordonnées Nominatim si address présente) ──
-  async findForMap() {
-    const partners = await this.prisma.partner.findMany({
-      where: { isActive: true, type: { in: ['Marchand', 'Restaurant'] }, slug: { not: null } },
-      select: {
-        id: true, name: true, slug: true, type: true,
-        city: true, zone: true, address: true, lat: true, lng: true, bannerUrl: true,
-        profileImageUrl: true,
-        categories: { select: { name: true } },
-        _count: { select: { followers: true } },
-        reviews: { select: { rating: true } },
-        promos: {
-          where: { isActive: true, endsAt: { gt: new Date() } },
-          select: { title: true, discount: true },
-          take: 1,
-        },
-      },
-    });
-
-    return partners.map((p) => {
-      const ratings = p.reviews.map((r) => r.rating);
-      const avgRating = ratings.length
-        ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
-        : null;
-
-      // Utilise les vraies coordonnées si disponibles, sinon centroïde de la ville
-      const DEFAULT_COORDS: Record<string, [number, number]> = {
-        'Dakar': [14.6937, -17.4441],
-        'Saint-Louis': [16.0326, -16.4818],
-        'Thiès': [14.7910, -16.9359],
-        'Ziguinchor': [12.5586, -16.2719],
-      };
-      const [defLat, defLng] = DEFAULT_COORDS[p.city] || DEFAULT_COORDS['Dakar'];
-      const lat = (p as any).lat ?? defLat;
-      const lng = (p as any).lng ?? defLng;
-
-      return {
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        type: p.type,
-        city: p.city,
-        zone: p.zone,
-        address: p.address,
-        profileImageUrl: p.profileImageUrl,
-        categories: p.categories,
-        followers: p._count.followers,
-        avgRating,
-        reviewCount: ratings.length,
-        promo: p.promos[0] || null,
-        bannerUrl: (p as any).bannerUrl || null,
-        // Coordonnées — le frontend affinera via Nominatim si address présente
-        lat,
-        lng,
-      };
-    });
-  }
-
-  async updatePartner(id: string, data: {
-    isActive?: boolean;
-    profileImageUrl?: string;
-    bannerUrl?: string;
-    address?: string;
-    lat?: number;
-    lng?: number;
-    zone?: string;
-    city?: string;
-    message?: string;
-    email?: string;
-  }) {
-    // Récupérer l'état actuel avant la mise à jour
-    const before = await this.prisma.partner.findUnique({
-      where: { id },
-      select: { isActive: true, email: true, name: true, type: true },
-    });
-
-    const updated = await this.prisma.partner.update({ where: { id }, data });
-
-    // Envoi email si vient d'être activé pour la première fois
-    const justActivated = !before?.isActive && data.isActive === true;
-    if (justActivated && before?.email) {
-      const token = await this.prisma.partnerToken.findUnique({ where: { partnerId: id } });
-      const isServiceProvider = before.type === 'Prestataire';
-
-      if (isServiceProvider) {
-        this.email.sendCompteActivePrestataire(before.email, before.name)
-          .catch((e) => this.logger.warn('Email activation presta: ' + e.message));
-      } else {
-        // Générer le token si pas encore créé
-        const portalToken = token?.token ?? (
-          await this.prisma.partnerToken.create({ data: { partnerId: id } })
-        ).token;
-        this.email.sendCompteActive(before.email, before.name, before.type, portalToken)
-          .catch((e) => this.logger.warn('Email activation: ' + e.message));
-      }
-    }
-
-    return updated;
+  updatePartner(id: string, data: { isActive?: boolean }) {
+    return this.prisma.partner.update({ where: { id }, data });
   }
 
   // ── Produits publics d'un partenaire ──────────────────────
   async getPublicProducts(slug: string) {
     const partner = await this.prisma.partner.findFirst({
       where: { slug, isActive: true },
-      select: { id: true, name: true, city: true, contact: true, slug: true, bannerUrl: true, address: true },
+      select: { id: true, name: true, city: true, contact: true, slug: true },
     });
     if (!partner) return { partner: null, products: [] };
 
@@ -267,6 +109,7 @@ export class PartnersService {
 
   // ── Partner Portal ─────────────────────────────────────────
 
+  // Retourne les infos du partenaire depuis son token
   async findByPortalToken(token: string) {
     const pt = await this.prisma.partnerToken.findUnique({
       where: { token },
@@ -281,17 +124,24 @@ export class PartnersService {
     });
 
     if (!pt) throw new NotFoundException('Token invalide ou expiré');
-    if (!pt.partner.isActive) throw new UnauthorizedException("Ce compte partenaire n'est pas encore activé. Contactez l'équipe Lepfila.");
+    if (!pt.partner.isActive) throw new UnauthorizedException('Ce compte partenaire n\'est pas encore activé. Contactez l\'équipe Lepfila.');
 
     return pt.partner;
   }
 
+  // Génère ou retourne le token existant d'un partenaire (admin only)
   async generatePortalToken(partnerId: string) {
-    const existing = await this.prisma.partnerToken.findUnique({ where: { partnerId } });
+    const existing = await this.prisma.partnerToken.findUnique({
+      where: { partnerId },
+    });
     if (existing) return existing;
-    return this.prisma.partnerToken.create({ data: { partnerId } });
+
+    return this.prisma.partnerToken.create({
+      data: { partnerId },
+    });
   }
 
+  // Liste tous les tokens (admin)
   async listPortalTokens() {
     return this.prisma.partnerToken.findMany({
       include: {

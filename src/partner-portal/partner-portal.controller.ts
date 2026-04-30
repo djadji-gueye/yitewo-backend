@@ -10,7 +10,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller()
 export class PartnerPortalController {
-  constructor(private service: PartnerPortalService) {}
+  constructor(private service: PartnerPortalService) { }
 
   // ══ PUBLIC — Partner Portal (auth par token) ══════════════
 
@@ -66,16 +66,6 @@ export class PartnerPortalController {
     return this.service.deleteProduct(id, token);
   }
 
-  @Patch('partners/portal/:token/profile')
-  updateProfile(
-    @Param('token') token: string,
-    @Body() body: {
-      zone?: string; city?: string;
-      profileImageUrl?: string; bannerUrl?: string;
-      address?: string; lat?: number; lng?: number;
-    },
-  ) { return this.service.updateProfile(token, body); }
-
   // ══ ADMIN — Gestion des tokens ════════════════════════════
 
   // Générer/obtenir le token d'un partenaire
@@ -90,5 +80,10 @@ export class PartnerPortalController {
   @UseGuards(JwtAuthGuard)
   revokeToken(@Param('id') id: string) {
     return this.service.revokeToken(id);
+  }
+
+  @Get(':token/monthly-report')
+  getMonthlyReport(@Param('token') token: string) {
+    return this.service.getMonthlyReport(token);
   }
 }

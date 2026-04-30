@@ -23,7 +23,7 @@ export class WhatsappService {
       if (message.type === 'text') text = message.text?.body || '';
       else if (message.type === 'interactive') {
         text = message.interactive?.button_reply?.title ||
-               message.interactive?.list_reply?.title || '';
+          message.interactive?.list_reply?.title || '';
       }
       if (!text.trim()) continue;
 
@@ -121,9 +121,9 @@ Réponds toujours de façon naturelle et chaleureuse, comme un conseiller séné
 
     const prestataireText = prestataires.length
       ? prestataires.map(p => {
-          const cats = p.serviceCategories?.slice(0, 2).join(', ') || 'Services';
-          return `- ${p.name} | ${cats} | ${p.city} → wa.me/${p.contact?.replace(/\s/g, '')}`;
-        }).join('\n')
+        const cats = p.serviceCategories?.slice(0, 2).join(', ') || 'Services';
+        return `- ${p.name} | ${cats} | ${p.city} → wa.me/${p.contact?.replace(/\s/g, '')}`;
+      }).join('\n')
       : 'Aucun prestataire pour le moment.';
 
     return { partnersText, prestataireText };
@@ -199,7 +199,7 @@ Réponds toujours de façon naturelle et chaleureuse, comme un conseiller séné
           message_id: messageId,
         }),
       });
-    } catch {}
+    } catch { }
   }
 
   private getConversation(phone: string) {

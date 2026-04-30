@@ -25,7 +25,6 @@ export class PartnerPortalService {
           select: {
             id: true, name: true, slug: true, city: true,
             zone: true, type: true, isActive: true, contact: true,
-            profileImageUrl: true, bannerUrl: true, address: true, lat: true, lng: true,
           },
         },
       },
@@ -96,8 +95,7 @@ export class PartnerPortalService {
     }
 
     // Image par défaut via Pollinations si non fournie
-    const imageUrls = dto.imageUrls?.slice(0, 3) ?? [];
-    const imageUrl = dto.imageUrl || imageUrls[0] || this.generateImageUrl(dto.name);
+    const imageUrl = dto.imageUrl || this.generateImageUrl(dto.name);
 
     return this.prisma.partnerProduct.create({
       data: {
@@ -107,7 +105,6 @@ export class PartnerPortalService {
         category: dto.category ?? 'plat',
         description: dto.description,
         imageUrl,
-        imageUrls,
       },
     });
   }
@@ -129,7 +126,6 @@ export class PartnerPortalService {
         ...(dto.category && { category: dto.category }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl || this.generateImageUrl(product.name) }),
-        ...(dto.imageUrls !== undefined && { imageUrls: dto.imageUrls.slice(0, 3) }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });
@@ -227,34 +223,6 @@ export class PartnerPortalService {
     };
   }
 
-
-  // ── Mise à jour profil partenaire ────────────────────────
-  async updateProfile(token: string, data: {
-    zone?: string; city?: string;
-    profileImageUrl?: string; bannerUrl?: string;
-    address?: string; lat?: number; lng?: number;
-  }) {
-    const partner = await this.verifyToken(token);
-    return this.prisma.partner.update({
-      where: { id: partner.id },
-      data: {
-        ...(data.zone !== undefined && { zone: data.zone }),
-        ...(data.city !== undefined && { city: data.city }),
-        ...(data.profileImageUrl !== undefined && { profileImageUrl: data.profileImageUrl }),
-        ...(data.bannerUrl !== undefined && { bannerUrl: data.bannerUrl }),
-        ...(data.address !== undefined && { address: data.address }),
-        ...(data.lat !== undefined && { lat: data.lat }),
-        ...(data.lng !== undefined && { lng: data.lng }),
-      },
-      select: {
-        id: true, name: true, slug: true, city: true, zone: true,
-        type: true, contact: true, isActive: true,
-        profileImageUrl: true, bannerUrl: true,
-        address: true, lat: true, lng: true,
-      },
-    });
-  }
-
   // ── Génère URL image via Pollinations (sans stockage) ─────
   private generateImageUrl(name: string): string {
     const prompt = encodeURIComponent(
@@ -262,4 +230,86 @@ export class PartnerPortalService {
     );
     return `https://image.pollinations.ai/prompt/${prompt}?width=400&height=300&nologo=true`;
   }
+
+  // ── Rapport mensuel (Business+) ──────────────────────────────────
+  async getMonthlyReport(token: string) {
+    const pt = await this.prisma.partnerToken.findUnique({
+      where: { token },
+      include: { partner: { select: { id: true, name: true, plan: true, planExpiresAt: true } } },
+    });
+    if (!pt) throw new Error('Token invalide');
+
+    const { partner } = pt;
+    const allowedPlans = ['business', 'enterprise'];
+    if (!allowedPlans.includes(partner.plan)) {
+      return {
+        locked: true,
+        plan: partner.plan,
+        message: 'Le rapport mensuel est disponible à partir du plan Business (14 900 FCFA/mois).',
+      };
+    }
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const [ordersThisMonth, ordersLastMonth, topProducts] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { partnerId: partner.id, createdAt: { gte: startOfMonth } },
+        select: { totalPrice: true, status: true, createdAt: true, customerName: true },
+      }),
+      this.prisma.order.findMany({
+        where: { partnerId: partner.id, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
+        select: { totalPrice: true, status: true },
+      }),
+      this.prisma.orderItem.groupBy({
+        by: ['partnerProductId'],
+        where: { order: { partnerId: partner.id, createdAt: { gte: startOfMonth } } },
+        _sum: { quantity: true },
+        _count: { partnerProductId: true },
+        orderBy: { _sum: { quantity: 'desc' } },
+        take: 5,
+      }),
+    ]);
+
+    const revenueThisMonth = ordersThisMonth
+      .filter(o => o.status === 'DELIVERED')
+      .reduce((s, o) => s + o.totalPrice, 0);
+    const revenueLastMonth = ordersLastMonth
+      .filter(o => o.status === 'DELIVERED')
+      .reduce((s, o) => s + o.totalPrice, 0);
+
+    const growth = revenueLastMonth > 0
+      ? Math.round(((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100)
+      : revenueThisMonth > 0 ? 100 : 0;
+
+    // Heures de pointe
+    const hourCounts: Record<number, number> = {};
+    ordersThisMonth.forEach(o => {
+      const h = new Date(o.createdAt).getHours();
+      hourCounts[h] = (hourCounts[h] || 0) + 1;
+    });
+    const peakHour = Object.entries(hourCounts).sort(([, a], [, b]) => b - a)[0];
+
+    return {
+      locked: false,
+      period: `${startOfMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`,
+      partner: { name: partner.name, plan: partner.plan },
+      revenue: {
+        thisMonth: revenueThisMonth,
+        lastMonth: revenueLastMonth,
+        growth,
+      },
+      orders: {
+        total: ordersThisMonth.length,
+        delivered: ordersThisMonth.filter(o => o.status === 'DELIVERED').length,
+        pending: ordersThisMonth.filter(o => o.status === 'PENDING').length,
+        cancelled: ordersThisMonth.filter(o => o.status === 'CANCELLED').length,
+      },
+      peakHour: peakHour ? `${peakHour[0]}h - ${parseInt(peakHour[0]) + 1}h` : null,
+      topProducts,
+    };
+  }
+
 }

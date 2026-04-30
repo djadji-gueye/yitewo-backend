@@ -1,43 +1,20 @@
 import {
   Controller, Post, Get, Patch, Body,
   NotFoundException, Param, UseGuards,
-  UploadedFile, UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { PartnersService } from './partners.service';
 import { CreatePartnerDto } from './dto/create-partner.dto';
-import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { multerConfig } from '../common/multer.config';
 
 @Controller('partners')
 export class PartnersController {
-  constructor(
-    private service: PartnersService,
-    private cloudinary: CloudinaryService,
-  ) { }
+  constructor(private service: PartnersService) { }
 
   // ── Public ──────────────────────────────────────────────────
-
   @Post()
   create(@Body() dto: CreatePartnerDto) { return this.service.create(dto); }
 
-  // Upload photo de profil prestataire
-  @Post('upload-profile-image')
-  @UseInterceptors(FileInterceptor('file', multerConfig))
-  async uploadProfileImage(@UploadedFile() file: Express.Multer.File) {
-    const result: any = await this.cloudinary.uploadImage(file, 'partners');
-    return { url: result.secure_url };
-  }
-
-  // Liste publique marchands/restaurants (page /order)
-  @Get('public/map')
-  findForMap() { return this.service.findForMap(); }
-
-  @Get('public/shop')
-  findPublicShop() { return this.service.findPublicShop(); }
-
-  // Liste publique prestataires de services (page /services)
+  // Liste publique des marchands/restaurants actifs
   @Get('public/active')
   findPublicActive() { return this.service.findPublicActive(); }
 
@@ -59,23 +36,24 @@ export class PartnersController {
   }
 
   // ── Admin (JWT protected) ─────────────────────────────────────
-
   @Get()
   @UseGuards(JwtAuthGuard)
   findAll() { return this.service.findAll(); }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
-  updatePartner(@Param('id') id: string, @Body() body: { isActive?: boolean; profileImageUrl?: string; bannerUrl?: string; address?: string; lat?: number; lng?: number; zone?: string; city?: string }) {
+  updatePartner(@Param('id') id: string, @Body() body: { isActive?: boolean; profileImageUrl?: string; plan?: string }) {
     return this.service.updatePartner(id, body);
   }
 
+  // Génère un token portal pour un partenaire
   @Post(':id/portal-token')
   @UseGuards(JwtAuthGuard)
   generatePortalToken(@Param('id') id: string) {
     return this.service.generatePortalToken(id);
   }
 
+  // Liste tous les tokens portal
   @Get('admin/portal-tokens')
   @UseGuards(JwtAuthGuard)
   listPortalTokens() { return this.service.listPortalTokens(); }

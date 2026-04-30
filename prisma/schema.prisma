@@ -5,7 +5,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") 
 }
 
 // ─────────────────────────────────────────────
@@ -119,7 +118,6 @@ model Opportunity {
   badge       String?
   details     String[]
   imageUrl    String?
-  imageUrls   String[]  @default([])
   contact     String
   isPublished Boolean             @default(false)
   isExternal  Boolean             @default(false)
@@ -158,11 +156,8 @@ model OpportunitySubmission {
   price       String?
   contact     String
   status      SubmissionStatus    @default(PENDING)
-  imageUrl    String?                 
-  imageUrls   String[]  @default([])
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
-  
 }
 
 enum SubmissionStatus {
@@ -176,75 +171,26 @@ enum SubmissionStatus {
 // ─────────────────────────────────────────────
 
 model Partner {
-  id                 String    @id @default(uuid())
-  slug               String?   @unique
-  type               String
-  name               String
-  city               String
-  zone               String?
-  message            String?
-  contact            String
-  isActive           Boolean   @default(false)
-  serviceCategories  String[]  @default([])
-  address            String?
-  lat                Float?
-  lng                Float?
-  email              String?
-  bannerUrl          String?
-  profileImageUrl    String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  categories Category[]     @relation("PartnerCategories")
-  orders     Order[]
-  products   PartnerProduct[]
-  token        PartnerToken?
-  followers    PartnerFollow[]
-  reviews      PartnerReview[]
-  promos       PartnerPromo[]
-}
-
-// ── Followers (Suivre une boutique) ────────────────────────
-model PartnerFollow {
-  id        String   @id @default(uuid())
-  partnerId String
-  phone     String
-  name      String?
-  createdAt DateTime @default(now())
-  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-
-  @@unique([partnerId, phone])
-  @@index([partnerId])
-}
-
-// ── Reviews (Notes & avis) ─────────────────────────────────
-model PartnerReview {
-  id        String   @id @default(uuid())
-  partnerId String
-  orderId   String?  @unique
-  rating    Int      // 1-5
-  comment   String?
-  phone     String?
-  name      String?
-  createdAt DateTime @default(now())
-  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-
-  @@index([partnerId])
-}
-
-// ── Promos flash ───────────────────────────────────────────
-model PartnerPromo {
-  id          String   @id @default(uuid())
-  partnerId   String
-  title       String   // "🔥 -20% sur tout le menu"
-  description String?
-  discount    Int?     // pourcentage
-  endsAt      DateTime
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-
-  @@index([partnerId])
-  @@index([isActive])
+  id                String    @id @default(uuid())
+  slug              String?   @unique
+  type              String
+  name              String
+  city              String
+  zone              String?
+  message           String?
+  contact           String
+  isActive          Boolean   @default(false)
+  plan              String    @default("free")  // free | pro | business | enterprise
+  planExpiresAt     DateTime?
+  serviceCategories String[]  @default([])
+  profileImageUrl   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  categories        Category[]      @relation("PartnerCategories")
+  orders            Order[]
+  products          PartnerProduct[]
+  token             PartnerToken?
+  subscriptions     Subscription[]
 }
 
 // Token d'accès au Partner Portal (sans JWT complet)
@@ -265,7 +211,6 @@ model PartnerProduct {
   category    String   @default("plat")
   description String?
   imageUrl    String?
-  imageUrls   String[]
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -316,4 +261,35 @@ model Admin {
 enum AdminRole {
   SUPER_ADMIN
   ADMIN
+}
+
+// ── Abonnements partenaires ───────────────────────────────────────
+model Subscription {
+  id          String    @id @default(uuid())
+  partnerId   String
+  partner     Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  plan        String    // free | pro | business | enterprise
+  billing     String    @default("mensuel")  // mensuel | annuel
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+  isActive    Boolean   @default(true)
+  autoRenew   Boolean   @default(false)
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  payments    SubscriptionPayment[]
+}
+
+model SubscriptionPayment {
+  id             String    @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount         Int         // en FCFA
+  method         String      // wave | orange_money | autre
+  reference      String?     // référence de transaction Wave/OM
+  status         String      @default("pending")  // pending | confirmed | rejected
+  paidAt         DateTime?
+  confirmedBy    String?     // email ou id admin qui a confirmé
+  notes          String?
+  createdAt      DateTime    @default(now())
 }
