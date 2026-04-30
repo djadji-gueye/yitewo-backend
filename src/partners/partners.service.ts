@@ -73,6 +73,7 @@ export class PartnersService {
       },
       orderBy: { name: 'asc' },
     }).then(partners => {
+      console.log("partners", partners)
       const ORDER = { enterprise: 0, business: 1, pro: 2, free: 3 };
       return partners.sort((a, b) =>
         (ORDER[(a as any).plan as keyof typeof ORDER] ?? 3) - (ORDER[(b as any).plan as keyof typeof ORDER] ?? 3)
