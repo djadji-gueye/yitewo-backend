@@ -1,63 +1,63 @@
-import { IsString, IsOptional, IsBoolean, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsArray, IsNumber } from 'class-validator';
 
 export class CreatePartnerDto {
-    @IsString()
-    type: string;
+  @IsString()
+  type: string;
 
-    @IsOptional()
-    @IsString()
-    slug?: string;
+  @IsOptional()
+  @IsString()
+  slug?: string;
 
-    @IsString()
-    name: string;
+  @IsString()
+  name: string;
 
-    @IsString()
-    city: string;
+  @IsString()
+  city: string;
 
-    @IsOptional()
-    @IsString()
-    zone?: string;
+  @IsOptional()
+  @IsString()
+  zone?: string;
 
-    @IsString()
-    contact: string;
+  @IsOptional()
+  @IsString()
+  address?: string;
 
-    @IsOptional()
-    @IsString()
-    message?: string;
+  @IsOptional()
+  @IsNumber()
+  lat?: number;
 
-    @IsOptional()
-    @IsBoolean()
-    isActive?: boolean;
+  @IsOptional()
+  @IsNumber()
+  lng?: number;
 
-    // 🔥 NOUVEAU
-    @IsOptional()
-    @IsArray()
-    serviceCategories?: string[];
+  @IsOptional()
+  @IsString()
+  email?: string;
 
-    @IsOptional()
-    @IsString()
-    profileImageUrl?: string;
+  @IsString()
+  contact: string;
 
-    @IsOptional()
-    @IsString()
-    bannerUrl?: string;
+  @IsOptional()
+  @IsString()
+  message?: string;
 
-    @IsOptional()
-    @IsString()
-    address?: string;
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 
-    @IsOptional()
-    lat?: number;
+  @IsOptional()
+  @IsString()
+  profileImageUrl?: string;
 
-    @IsOptional()
-    lng?: number;
-    @IsOptional()
-    @IsArray()
-    categories?: string[];
+  @IsOptional()
+  @IsString()
+  bannerUrl?: string;
 
-    // Email pour notifications
-    @IsOptional()
-    @IsString()
-    email?: string;
+  @IsOptional()
+  @IsArray()
+  categories?: string[];
+
+  @IsOptional()
+  @IsArray()
+  serviceCategories?: string[];
 }
-// Ajout pour les prestataires de services
