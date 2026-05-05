@@ -33,7 +33,15 @@ export class PartnerPortalService {
     });
     if (!pt) throw new UnauthorizedException('Token invalide ou expiré');
     if (!pt.partner.isActive) throw new UnauthorizedException("Ce partenaire n'est pas encore activé");
-    return pt.partner;
+
+    // Downgrade automatique si plan expiré
+    const partner = pt.partner;
+    if (partner.plan !== 'free' && partner.planExpiresAt && new Date(partner.planExpiresAt) < new Date()) {
+      await this.prisma.partner.update({ where: { id: partner.id }, data: { plan: 'free' } });
+      partner.plan = 'free';
+    }
+
+    return partner;
   }
 
   // ── Profil partenaire via token ───────────────────────────
@@ -102,6 +110,15 @@ export class PartnerPortalService {
 
     const imageUrl = dto.imageUrl || this.generateImageUrl(dto.name);
 
+    // Limite photos selon le plan
+    const PHOTO_LIMITS: Record<string, number> = {
+      free: 1, pro: 5, business: 10, enterprise: 999,
+    };
+    const maxPhotos = PHOTO_LIMITS[partner.plan] ?? 1;
+    const imageUrls = dto.imageUrls
+      ? dto.imageUrls.slice(0, maxPhotos)
+      : [];
+
     return this.prisma.partnerProduct.create({
       data: {
         partnerId:   partner.id,
@@ -110,6 +127,7 @@ export class PartnerPortalService {
         category:    dto.category ?? 'plat',
         description: dto.description,
         imageUrl,
+        imageUrls,
       },
     });
   }
@@ -130,6 +148,11 @@ export class PartnerPortalService {
         ...(dto.category    !== undefined && { category: dto.category }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.imageUrl    !== undefined && { imageUrl: dto.imageUrl || this.generateImageUrl(product.name) }),
+        ...(dto.imageUrls   !== undefined && (() => {
+          const PHOTO_LIMITS: Record<string, number> = { free: 1, pro: 5, business: 10, enterprise: 999 };
+          const max = PHOTO_LIMITS[partner.plan] ?? 1;
+          return { imageUrls: dto.imageUrls!.slice(0, max) };
+        })()),
         ...(dto.isActive    !== undefined && { isActive: dto.isActive }),
       },
     });
@@ -196,9 +219,17 @@ export class PartnerPortalService {
     return updated;
   }
 
-  // ── Stats du partenaire ───────────────────────────────────
+  // ── Stats du partenaire (Pro+) ────────────────────────────
   async getStats(token: string) {
     const partner = await this.verifyToken(token);
+
+    if (!['pro', 'business', 'enterprise'].includes(partner.plan)) {
+      return {
+        locked: true,
+        plan: partner.plan,
+        message: 'Les statistiques sont disponibles à partir du plan Pro (4 900 FCFA/mois).',
+      };
+    }
 
     const [totalOrders, pendingOrders, totalProducts, activeProducts] =
       await this.prisma.$transaction([

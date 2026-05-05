@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 @Injectable()
 export class SocialService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private whatsapp: WhatsappService,
+  ) {}
 
   // ── FOLLOW ────────────────────────────────────────────────
 
@@ -141,9 +145,17 @@ export class SocialService {
   }) {
     const pt = await this.prisma.partnerToken.findUnique({
       where: { token },
-      include: { partner: { select: { id: true, isActive: true } } },
+      include: { partner: { select: { id: true, isActive: true, plan: true, planExpiresAt: true } } },
     });
     if (!pt || !pt.partner.isActive) throw new NotFoundException('Token invalide');
+
+    // Vérifier expiration plan
+    const effectivePlan = (pt.partner.plan !== 'free' && pt.partner.planExpiresAt && new Date(pt.partner.planExpiresAt) < new Date())
+      ? 'free' : pt.partner.plan;
+
+    if (!['pro', 'business', 'enterprise'].includes(effectivePlan)) {
+      throw new BadRequestException('Les promos flash sont disponibles à partir du plan Pro (4 900 FCFA/mois).');
+    }
 
     // Désactiver les anciennes promos actives
     await this.prisma.partnerPromo.updateMany({
@@ -209,7 +221,43 @@ export class SocialService {
     });
   }
 
-  // ── STATS PARTENAIRE (followers + rating) ─────────────────
+  // ── PUSH NOTIFICATIONS AUX FOLLOWERS (Business+) ─────────
+  async notifyFollowers(token: string, message: string) {
+    // Vérifier le partenaire et son plan
+    const pt = await this.prisma.partnerToken.findUnique({
+      where: { token },
+      include: { partner: { select: { id: true, name: true, slug: true, isActive: true, plan: true, planExpiresAt: true } } },
+    });
+    if (!pt || !pt.partner.isActive) throw new NotFoundException('Token invalide');
+
+    const effectivePlan = (pt.partner.plan !== 'free' && pt.partner.planExpiresAt && new Date(pt.partner.planExpiresAt) < new Date())
+      ? 'free' : pt.partner.plan;
+
+    if (!['business', 'enterprise'].includes(effectivePlan)) {
+      throw new BadRequestException('Les notifications push sont disponibles à partir du plan Business (14 900 FCFA/mois).');
+    }
+
+    const followers = await this.prisma.partnerFollow.findMany({
+      where: { partnerId: pt.partner.id },
+      select: { phone: true, name: true },
+    });
+
+    // Envoi WhatsApp à chaque follower
+    const text = `📣 *${pt.partner.name}*\n\n${message}\n\n_Via Yitewo — yitewo.com/shop/${pt.partner.slug}_`;
+    const results = await Promise.allSettled(
+      followers.map(f => this.whatsapp.sendMessage(f.phone, text))
+    );
+    const sent = results.filter(r => r.status === 'fulfilled').length;
+
+    return {
+      sent,
+      total: followers.length,
+      partner: pt.partner.name,
+      message,
+    };
+  }
+
+
   async getPartnerStats(slug: string) {
     const partner = await this.prisma.partner.findFirst({
       where: { slug, isActive: true },
