@@ -14,7 +14,7 @@ export class PartnerPortalService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-  ) { }
+  ) {}
 
   // ── Vérifie le token et retourne le partenaire ────────────
   private async verifyToken(token: string) {
@@ -25,31 +25,35 @@ export class PartnerPortalService {
           select: {
             id: true, name: true, slug: true, city: true,
             zone: true, type: true, isActive: true, contact: true,
-            profileImageUrl: true, bannerUrl: true, address: true, lat: true, lng: true,
+            plan: true, planExpiresAt: true,
+            profileImageUrl: true, bannerUrl: true,
           },
         },
       },
     });
     if (!pt) throw new UnauthorizedException('Token invalide ou expiré');
-    if (!pt.partner.isActive) throw new UnauthorizedException('Ce partenaire n\'est pas encore activé');
-    return pt.partner;
+    if (!pt.partner.isActive) throw new UnauthorizedException("Ce partenaire n'est pas encore activé");
+
+    // Downgrade automatique si plan expiré
+    const partner = pt.partner;
+    if (partner.plan !== 'free' && partner.planExpiresAt && new Date(partner.planExpiresAt) < new Date()) {
+      await this.prisma.partner.update({ where: { id: partner.id }, data: { plan: 'free' } });
+      partner.plan = 'free';
+    }
+
+    return partner;
   }
 
-  // ── Profil partenaire via token (pour le portal) ──────────
+  // ── Profil partenaire via token ───────────────────────────
   async getPartnerByToken(token: string) {
     return this.verifyToken(token);
   }
 
   // ── Génère ou retourne le token d'un partenaire (admin) ───
   async getOrCreateToken(partnerId: string) {
-    const existing = await this.prisma.partnerToken.findUnique({
-      where: { partnerId },
-    });
+    const existing = await this.prisma.partnerToken.findUnique({ where: { partnerId } });
     if (existing) return existing;
-
-    return this.prisma.partnerToken.create({
-      data: { partnerId },
-    });
+    return this.prisma.partnerToken.create({ data: { partnerId } });
   }
 
   // ── Révoque le token (admin) ──────────────────────────────
@@ -67,11 +71,14 @@ export class PartnerPortalService {
     });
   }
 
-  // ── Produits publics (pour /order?partner=slug) ───────────
+  // ── Produits publics (page /order?partner=slug) ───────────
   async getPublicProducts(slug: string) {
     const partner = await this.prisma.partner.findFirst({
       where: { slug, isActive: true },
-      select: { id: true, name: true, city: true, contact: true },
+      select: {
+        id: true, name: true, city: true, contact: true,
+        bannerUrl: true, profileImageUrl: true, plan: true,
+      },
     });
     if (!partner) throw new NotFoundException('Partenaire introuvable');
 
@@ -87,24 +94,37 @@ export class PartnerPortalService {
   async createProduct(dto: CreatePartnerProductDto) {
     const partner = await this.verifyToken(dto.token);
 
-    // Limite : max 50 produits par partenaire
-    const count = await this.prisma.partnerProduct.count({
-      where: { partnerId: partner.id },
-    });
-    if (count >= 50) {
-      throw new ConflictException('Limite de 50 produits atteinte');
+    // Limite selon le plan
+    const LIMITS: Record<string, number> = {
+      free: 5, pro: 999999, business: 999999, enterprise: 999999,
+    };
+    const max = LIMITS[partner.plan] ?? 5;
+    const count = await this.prisma.partnerProduct.count({ where: { partnerId: partner.id } });
+    if (count >= max) {
+      throw new ConflictException(
+        partner.plan === 'free'
+          ? `Limite de ${max} produits atteinte. Passez au plan Pro pour des produits illimités.`
+          : 'Limite atteinte.',
+      );
     }
 
-    // Image par défaut via Pollinations si non fournie
-    const imageUrls = dto.imageUrls?.slice(0, 3) ?? [];
-    const imageUrl = dto.imageUrl || imageUrls[0] || this.generateImageUrl(dto.name);
+    const imageUrl = dto.imageUrl || this.generateImageUrl(dto.name);
+
+    // Limite photos selon le plan
+    const PHOTO_LIMITS: Record<string, number> = {
+      free: 1, pro: 5, business: 10, enterprise: 999,
+    };
+    const maxPhotos = PHOTO_LIMITS[partner.plan] ?? 1;
+    const imageUrls = dto.imageUrls
+      ? dto.imageUrls.slice(0, maxPhotos)
+      : [];
 
     return this.prisma.partnerProduct.create({
       data: {
-        partnerId: partner.id,
-        name: dto.name,
-        price: dto.price,
-        category: dto.category ?? 'plat',
+        partnerId:   partner.id,
+        name:        dto.name,
+        price:       dto.price,
+        category:    dto.category ?? 'plat',
         description: dto.description,
         imageUrl,
         imageUrls,
@@ -115,7 +135,6 @@ export class PartnerPortalService {
   // ── Modifier un produit ───────────────────────────────────
   async updateProduct(id: string, dto: UpdatePartnerProductDto) {
     const partner = await this.verifyToken(dto.token);
-
     const product = await this.prisma.partnerProduct.findFirst({
       where: { id, partnerId: partner.id },
     });
@@ -124,13 +143,17 @@ export class PartnerPortalService {
     return this.prisma.partnerProduct.update({
       where: { id },
       data: {
-        ...(dto.name && { name: dto.name }),
-        ...(dto.price && { price: dto.price }),
-        ...(dto.category && { category: dto.category }),
+        ...(dto.name        !== undefined && { name: dto.name }),
+        ...(dto.price       !== undefined && { price: dto.price }),
+        ...(dto.category    !== undefined && { category: dto.category }),
         ...(dto.description !== undefined && { description: dto.description }),
-        ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl || this.generateImageUrl(product.name) }),
-        ...(dto.imageUrls !== undefined && { imageUrls: dto.imageUrls.slice(0, 3) }),
-        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        ...(dto.imageUrl    !== undefined && { imageUrl: dto.imageUrl || this.generateImageUrl(product.name) }),
+        ...(dto.imageUrls   !== undefined && (() => {
+          const PHOTO_LIMITS: Record<string, number> = { free: 1, pro: 5, business: 10, enterprise: 999 };
+          const max = PHOTO_LIMITS[partner.plan] ?? 1;
+          return { imageUrls: dto.imageUrls!.slice(0, max) };
+        })()),
+        ...(dto.isActive    !== undefined && { isActive: dto.isActive }),
       },
     });
   }
@@ -142,11 +165,7 @@ export class PartnerPortalService {
       where: { id, partnerId: partner.id },
     });
     if (!product) throw new NotFoundException('Produit introuvable');
-
-    return this.prisma.partnerProduct.update({
-      where: { id },
-      data: { isActive },
-    });
+    return this.prisma.partnerProduct.update({ where: { id }, data: { isActive } });
   }
 
   // ── Supprimer un produit ──────────────────────────────────
@@ -156,7 +175,6 @@ export class PartnerPortalService {
       where: { id, partnerId: partner.id },
     });
     if (!product) throw new NotFoundException('Produit introuvable');
-
     await this.prisma.partnerProduct.delete({ where: { id } });
     return { ok: true };
   }
@@ -170,17 +188,17 @@ export class PartnerPortalService {
       include: {
         items: {
           include: {
-            product: { select: { id: true, name: true } },
+            product:        { select: { id: true, name: true } },
+            partnerProduct: { select: { id: true, name: true } },
           },
         },
       },
     });
   }
 
-  // ── Mise à jour statut commande (partner) ─────────────────
+  // ── Mise à jour statut commande ───────────────────────────
   async updateOrderStatus(orderId: string, token: string, status: string) {
     const partner = await this.verifyToken(token);
-
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, partnerId: partner.id },
     });
@@ -201,9 +219,17 @@ export class PartnerPortalService {
     return updated;
   }
 
-  // ── Stats du partenaire ───────────────────────────────────
+  // ── Stats du partenaire (Pro+) ────────────────────────────
   async getStats(token: string) {
     const partner = await this.verifyToken(token);
+
+    if (!['pro', 'business', 'enterprise'].includes(partner.plan)) {
+      return {
+        locked: true,
+        plan: partner.plan,
+        message: 'Les statistiques sont disponibles à partir du plan Pro (4 900 FCFA/mois).',
+      };
+    }
 
     const [totalOrders, pendingOrders, totalProducts, activeProducts] =
       await this.prisma.$transaction([
@@ -227,38 +253,73 @@ export class PartnerPortalService {
     };
   }
 
-
-  // ── Mise à jour profil partenaire ────────────────────────
-  async updateProfile(token: string, data: {
-    zone?: string; city?: string;
-    profileImageUrl?: string; bannerUrl?: string;
-    address?: string; lat?: number; lng?: number;
-  }) {
+  // ── Rapport mensuel (Business+) ───────────────────────────
+  async getMonthlyReport(token: string) {
     const partner = await this.verifyToken(token);
-    return this.prisma.partner.update({
-      where: { id: partner.id },
-      data: {
-        ...(data.zone !== undefined && { zone: data.zone }),
-        ...(data.city !== undefined && { city: data.city }),
-        ...(data.profileImageUrl !== undefined && { profileImageUrl: data.profileImageUrl }),
-        ...(data.bannerUrl !== undefined && { bannerUrl: data.bannerUrl }),
-        ...(data.address !== undefined && { address: data.address }),
-        ...(data.lat !== undefined && { lat: data.lat }),
-        ...(data.lng !== undefined && { lng: data.lng }),
-      },
-      select: {
-        id: true, name: true, slug: true, city: true, zone: true,
-        type: true, contact: true, isActive: true,
-        profileImageUrl: true, bannerUrl: true,
-        address: true, lat: true, lng: true,
-      },
+
+    if (!['business', 'enterprise'].includes(partner.plan)) {
+      return {
+        locked: true,
+        plan: partner.plan,
+        message: 'Le rapport mensuel est disponible à partir du plan Business (14 900 FCFA/mois).',
+      };
+    }
+
+    const now = new Date();
+    const startOfMonth    = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth   = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const [ordersThisMonth, ordersLastMonth, topProducts] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { partnerId: partner.id, createdAt: { gte: startOfMonth } },
+        select: { totalPrice: true, status: true, createdAt: true },
+      }),
+      this.prisma.order.findMany({
+        where: { partnerId: partner.id, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
+        select: { totalPrice: true, status: true },
+      }),
+      this.prisma.orderItem.groupBy({
+        by: ['partnerProductId'],
+        where: { order: { partnerId: partner.id, createdAt: { gte: startOfMonth } } },
+        _sum: { quantity: true },
+        orderBy: { _sum: { quantity: 'desc' } },
+        take: 5,
+      }),
+    ]);
+
+    const rev    = (orders: any[]) => orders.filter(o => o.status === 'DELIVERED').reduce((s, o) => s + o.totalPrice, 0);
+    const thisM  = rev(ordersThisMonth);
+    const lastM  = rev(ordersLastMonth);
+    const growth = lastM > 0 ? Math.round(((thisM - lastM) / lastM) * 100) : (thisM > 0 ? 100 : 0);
+
+    const hourCounts: Record<number, number> = {};
+    ordersThisMonth.forEach(o => {
+      const h = new Date(o.createdAt).getHours();
+      hourCounts[h] = (hourCounts[h] || 0) + 1;
     });
+    const peakEntry = Object.entries(hourCounts).sort(([, a], [, b]) => b - a)[0];
+
+    return {
+      locked: false,
+      period: startOfMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+      partner: { name: partner.name, plan: partner.plan },
+      revenue: { thisMonth: thisM, lastMonth: lastM, growth },
+      orders: {
+        total:     ordersThisMonth.length,
+        delivered: ordersThisMonth.filter(o => o.status === 'DELIVERED').length,
+        pending:   ordersThisMonth.filter(o => o.status === 'PENDING').length,
+        cancelled: ordersThisMonth.filter(o => o.status === 'CANCELLED').length,
+      },
+      peakHour:    peakEntry ? `${peakEntry[0]}h–${+peakEntry[0] + 1}h` : null,
+      topProducts,
+    };
   }
 
-  // ── Génère URL image via Pollinations (sans stockage) ─────
+  // ── URL image via Pollinations ────────────────────────────
   private generateImageUrl(name: string): string {
     const prompt = encodeURIComponent(
-      `${name}, Sénégal, cuisine africaine, photographie professionnelle appétissante, fond blanc`
+      `${name}, Sénégal, cuisine africaine, photographie professionnelle appétissante, fond blanc`,
     );
     return `https://image.pollinations.ai/prompt/${prompt}?width=400&height=300&nologo=true`;
   }

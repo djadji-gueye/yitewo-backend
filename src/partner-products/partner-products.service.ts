@@ -22,7 +22,7 @@ export class PartnerProductsService {
     const partnerId = await this.verifyToken(token);
     return this.prisma.partnerProduct.findMany({
       where: { partnerId },
-      orderBy: [{ category: 'asc' }, { name: 'asc' }, { createdAt: 'desc' }],
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
   }
 
@@ -30,9 +30,26 @@ export class PartnerProductsService {
   async create(dto: CreatePartnerProductDto) {
     const partnerId = await this.verifyToken(dto.token);
 
-    // Limit: 50 products max per partner on free plan
+    // Limite selon le plan du partenaire
+    const partner = await this.prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { plan: true },
+    });
+    const LIMITS: Record<string, number> = {
+      free: 5,
+      pro: 999999,
+      business: 999999,
+      enterprise: 999999,
+    };
+    const maxProducts = LIMITS[partner?.plan || 'free'];
     const count = await this.prisma.partnerProduct.count({ where: { partnerId } });
-    if (count >= 50) throw new Error('Limite de 50 produits atteinte');
+    if (count >= maxProducts) {
+      throw new Error(
+        partner?.plan === 'free'
+          ? `Limite de ${maxProducts} produits atteinte sur le plan Gratuit. Passez au plan Pro pour des produits illimités.`
+          : 'Limite atteinte'
+      );
+    }
 
     return this.prisma.partnerProduct.create({
       data: {
@@ -99,7 +116,7 @@ export class PartnerProductsService {
 
     const products = await this.prisma.partnerProduct.findMany({
       where: { partnerId: partner.id, isActive: true },
-      orderBy: [{ category: 'asc' }, { name: 'asc' }, { createdAt: 'desc' }],
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
 
     return { partner, products };

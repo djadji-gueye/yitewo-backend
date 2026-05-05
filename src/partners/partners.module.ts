@@ -11,4 +11,4 @@ import { CloudinaryModule } from '../cloudinary/cloudinary.module';
   controllers: [PartnersController],
   exports: [PartnersService],
 })
-export class PartnersModule {}
+export class PartnersModule { }

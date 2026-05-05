@@ -1,7 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Param, Body, Query,
-  UseGuards,
+  Param, Body, Query, UseGuards,
 } from '@nestjs/common';
 import { PartnerPortalService } from './partner-portal.service';
 import { CreatePartnerProductDto } from './dto/create-partner-product.dto';
@@ -10,47 +9,52 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller()
 export class PartnerPortalController {
-  constructor(private service: PartnerPortalService) {}
+  constructor(private service: PartnerPortalService) { }
 
-  // ══ PUBLIC — Partner Portal (auth par token) ══════════════
+  // ── PUBLIC — Partner Portal (auth par token) ──────────────
 
-  // Profil du partenaire via son token
   @Get('partners/portal/:token')
   getPartnerByToken(@Param('token') token: string) {
     return this.service.getPartnerByToken(token);
   }
 
-  // Produits publics pour /order?partner=slug
   @Get('partners/:slug/products')
   getPublicProducts(@Param('slug') slug: string) {
     return this.service.getPublicProducts(slug);
   }
 
-  // Produits du partenaire (portail)
   @Get('partner-products')
   getProducts(@Query('token') token: string) {
     return this.service.getProducts(token);
   }
 
-  // Stats du partenaire
   @Get('partner-portal/stats')
   getStats(@Query('token') token: string) {
     return this.service.getStats(token);
   }
 
-  // Créer un produit
+  // Rapport mensuel (Business+)
+  @Get('partner-portal/monthly-report')
+  getMonthlyReport(@Query('token') token: string) {
+    return this.service.getMonthlyReport(token);
+  }
+
+  // Commandes du partenaire
+  @Get('partner-portal/orders')
+  getOrders(@Query('token') token: string) {
+    return this.service.getOrders(token);
+  }
+
   @Post('partner-products')
   createProduct(@Body() dto: CreatePartnerProductDto) {
     return this.service.createProduct(dto);
   }
 
-  // Modifier un produit
   @Patch('partner-products/:id')
   updateProduct(@Param('id') id: string, @Body() dto: UpdatePartnerProductDto) {
     return this.service.updateProduct(id, dto);
   }
 
-  // Toggle actif/masqué
   @Patch('partner-products/:id/toggle')
   toggleProduct(
     @Param('id') id: string,
@@ -60,32 +64,29 @@ export class PartnerPortalController {
     return this.service.toggleProduct(id, token, isActive);
   }
 
-  // Supprimer un produit
   @Delete('partner-products/:id')
   deleteProduct(@Param('id') id: string, @Query('token') token: string) {
     return this.service.deleteProduct(id, token);
   }
 
-  @Patch('partners/portal/:token/profile')
-  updateProfile(
-    @Param('token') token: string,
-    @Body() body: {
-      zone?: string; city?: string;
-      profileImageUrl?: string; bannerUrl?: string;
-      address?: string; lat?: number; lng?: number;
-    },
-  ) { return this.service.updateProfile(token, body); }
+  // Mise à jour statut commande
+  @Patch('partner-portal/orders/:orderId/status')
+  updateOrderStatus(
+    @Param('orderId') orderId: string,
+    @Body('token') token: string,
+    @Body('status') status: string,
+  ) {
+    return this.service.updateOrderStatus(orderId, token, status);
+  }
 
-  // ══ ADMIN — Gestion des tokens ════════════════════════════
+  // ── ADMIN — Gestion des tokens ────────────────────────────
 
-  // Générer/obtenir le token d'un partenaire
   @Post('partners/:id/token')
   @UseGuards(JwtAuthGuard)
   getOrCreateToken(@Param('id') id: string) {
     return this.service.getOrCreateToken(id);
   }
 
-  // Révoquer le token d'un partenaire
   @Delete('partners/:id/token')
   @UseGuards(JwtAuthGuard)
   revokeToken(@Param('id') id: string) {

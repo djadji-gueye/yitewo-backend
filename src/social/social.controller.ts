@@ -82,6 +82,14 @@ export class SocialController {
     return this.service.deletePromo(id, body.token);
   }
 
+  // ── PUSH NOTIFICATIONS (Business+) ───────────────────────
+
+  // POST /social/notify  { token, message }
+  @Post('notify')
+  notifyFollowers(@Body() body: { token: string; message: string }) {
+    return this.service.notifyFollowers(body.token, body.message);
+  }
+
   // ── STATS ─────────────────────────────────────────────────
 
   // GET /social/stats/:slug

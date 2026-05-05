@@ -15,14 +15,16 @@ export class PartnersController {
   constructor(
     private service: PartnersService,
     private cloudinary: CloudinaryService,
-  ) { }
+  ) {}
 
-  // ── Public ──────────────────────────────────────────────────
+  // ── Public ────────────────────────────────────────────────────
 
   @Post()
-  create(@Body() dto: CreatePartnerDto) { return this.service.create(dto); }
+  create(@Body() dto: CreatePartnerDto) {
+    return this.service.create(dto);
+  }
 
-  // Upload photo de profil prestataire
+  // Upload photo de profil (prestataires) ou logo (marchands)
   @Post('upload-profile-image')
   @UseInterceptors(FileInterceptor('file', multerConfig))
   async uploadProfileImage(@UploadedFile() file: Express.Multer.File) {
@@ -30,43 +32,64 @@ export class PartnersController {
     return { url: result.secure_url };
   }
 
-  // Liste publique marchands/restaurants (page /order)
-  @Get('public/map')
-  findForMap() { return this.service.findForMap(); }
-
+  // Boutiques & Restaurants triés par plan (page /order)
   @Get('public/shop')
-  findPublicShop() { return this.service.findPublicShop(); }
+  findPublicShop() {
+    return this.service.findPublicShop();
+  }
 
-  // Liste publique prestataires de services (page /services)
+  // Prestataires triés par plan (page /services)
   @Get('public/active')
-  findPublicActive() { return this.service.findPublicActive(); }
+  findPublicActive() {
+    return this.service.findPublicActive();
+  }
 
+  // Partenaires géolocalisés (carte)
+  @Get('public/map')
+  findForMap() {
+    return this.service.findForMap();
+  }
+
+  // Portal token
   @Get('portal/:token')
   getByPortalToken(@Param('token') token: string) {
     return this.service.findByPortalToken(token);
   }
 
+  // Produits publics d'un partenaire
   @Get(':slug/products')
   async getPartnerProducts(@Param('slug') slug: string) {
     return this.service.getPublicProducts(slug);
   }
 
+  // Fiche publique par slug
   @Get(':slug')
   async getPartner(@Param('slug') slug: string) {
     const partner = await this.service.findBySlug(slug);
-    if (!partner) throw new NotFoundException('Partner not found');
+    if (!partner) throw new NotFoundException('Partenaire introuvable');
     return partner;
   }
 
-  // ── Admin (JWT protected) ─────────────────────────────────────
+  // ── Admin (JWT requis) ────────────────────────────────────────
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  findAll() { return this.service.findAll(); }
+  findAll() {
+    return this.service.findAll();
+  }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
-  updatePartner(@Param('id') id: string, @Body() body: { isActive?: boolean; profileImageUrl?: string; bannerUrl?: string; address?: string; lat?: number; lng?: number; zone?: string; city?: string }) {
+  updatePartner(
+    @Param('id') id: string,
+    @Body() body: {
+      isActive?: boolean;
+      profileImageUrl?: string;
+      bannerUrl?: string;
+      plan?: string;
+      planExpiresAt?: Date;
+    },
+  ) {
     return this.service.updatePartner(id, body);
   }
 
@@ -78,5 +101,7 @@ export class PartnersController {
 
   @Get('admin/portal-tokens')
   @UseGuards(JwtAuthGuard)
-  listPortalTokens() { return this.service.listPortalTokens(); }
+  listPortalTokens() {
+    return this.service.listPortalTokens();
+  }
 }
