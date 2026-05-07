@@ -19,6 +19,9 @@ export class CreatePartnerProductDto {
   @IsOptional() @IsArray()
   imageUrls?: string[];
 
+  @IsOptional() @IsBoolean()
+  isDailySpecial?: boolean;
+
   @IsString()
   token: string; // portal token for auth
 }

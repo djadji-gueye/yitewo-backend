@@ -56,6 +56,25 @@ export class PartnersController {
     return this.service.findByPortalToken(token);
   }
 
+  // Mise à jour profil via portal token (auto-auth)
+  @Patch('portal/:token/profile')
+  updateProfileByToken(
+    @Param('token') token: string,
+    @Body() body: {
+      zone?: string;
+      city?: string;
+      profileImageUrl?: string;
+      bannerUrl?: string;
+      address?: string;
+      message?: string;
+      lat?: number;
+      lng?: number;
+      openingHours?: Record<string, any>;
+    },
+  ) {
+    return this.service.updateProfileByToken(token, body);
+  }
+
   // Produits publics d'un partenaire
   @Get(':slug/products')
   async getPartnerProducts(@Param('slug') slug: string) {

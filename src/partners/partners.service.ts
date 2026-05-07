@@ -106,6 +106,7 @@ export class PartnersService {
         bannerUrl: true,
         profileImageUrl: true,
         plan: true,
+        openingHours: true,
         categories: { select: { name: true } },
         reviews:    { select: { rating: true } },
         promos: {
@@ -232,6 +233,41 @@ export class PartnersService {
     bannerUrl?: string;
   }) {
     return this.prisma.partner.update({ where: { id }, data });
+  }
+
+  // ── Update profil via portal token (partenaire) ────────────
+  async updateProfileByToken(token: string, data: {
+    zone?: string;
+    city?: string;
+    profileImageUrl?: string;
+    bannerUrl?: string;
+    address?: string;
+    message?: string;
+    lat?: number;
+    lng?: number;
+    openingHours?: Record<string, any>;
+  }) {
+    const pt = await this.prisma.partnerToken.findUnique({
+      where: { token },
+      select: { partnerId: true, partner: { select: { isActive: true } } },
+    });
+    if (!pt) throw new NotFoundException('Token invalide ou expiré');
+    if (!pt.partner.isActive) throw new NotFoundException("Ce partenaire n'est pas activé");
+
+    return this.prisma.partner.update({
+      where: { id: pt.partnerId },
+      data: {
+        ...(data.zone !== undefined && { zone: data.zone }),
+        ...(data.city !== undefined && { city: data.city }),
+        ...(data.profileImageUrl !== undefined && { profileImageUrl: data.profileImageUrl }),
+        ...(data.bannerUrl !== undefined && { bannerUrl: data.bannerUrl }),
+        ...(data.address !== undefined && { address: data.address }),
+        ...(data.message !== undefined && { message: data.message }),
+        ...(data.lat !== undefined && { lat: data.lat }),
+        ...(data.lng !== undefined && { lng: data.lng }),
+        ...(data.openingHours !== undefined && { openingHours: data.openingHours }),
+      },
+    });
   }
 
   // ── Produits publics d'un partenaire ───────────────────────

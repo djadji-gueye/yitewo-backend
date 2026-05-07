@@ -22,6 +22,9 @@ export class UpdatePartnerProductDto {
   @IsOptional() @IsBoolean()
   isActive?: boolean;
 
+  @IsOptional() @IsBoolean()
+  isDailySpecial?: boolean;
+
   @IsString()
   token: string;
 }

@@ -197,6 +197,7 @@ model Partner {
 
   serviceCategories String[]  @default([])
   profileImageUrl   String?
+  openingHours      Json?
 
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -271,11 +272,12 @@ model PartnerProduct {
   description String?
   imageUrl    String?
   imageUrls   String[] @default([]) // ✅ RESTORE
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  orderItems  OrderItem[]
+  isActive      Boolean  @default(true)
+  isDailySpecial Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  partner       Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
 }
 
 // ─────────────────────────────────────────────

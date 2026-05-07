@@ -40,6 +40,12 @@ export class PartnerProductsController {
     return this.service.update(id, dto);
   }
 
+  // Portal : toggle plat du jour
+  @Patch(':id/daily-special')
+  toggleDailySpecial(@Param('id') id: string, @Body() body: { token: string; isDailySpecial: boolean }) {
+    return this.service.toggleDailySpecial(id, body.token, body.isDailySpecial);
+  }
+
   // Portal : toggle actif/masqué
   @Patch(':id/toggle')
   toggle(@Param('id') id: string, @Body() body: ToggleDto) {

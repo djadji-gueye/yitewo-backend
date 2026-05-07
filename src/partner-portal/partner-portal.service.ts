@@ -121,13 +121,14 @@ export class PartnerPortalService {
 
     return this.prisma.partnerProduct.create({
       data: {
-        partnerId:   partner.id,
-        name:        dto.name,
-        price:       dto.price,
-        category:    dto.category ?? 'plat',
-        description: dto.description,
+        partnerId:      partner.id,
+        name:           dto.name,
+        price:          dto.price,
+        category:       dto.category ?? 'plat',
+        description:    dto.description,
         imageUrl,
         imageUrls,
+        isDailySpecial: dto.isDailySpecial ?? false,
       },
     });
   }
@@ -154,6 +155,7 @@ export class PartnerPortalService {
           return { imageUrls: dto.imageUrls!.slice(0, max) };
         })()),
         ...(dto.isActive    !== undefined && { isActive: dto.isActive }),
+        ...(dto.isDailySpecial !== undefined && { isDailySpecial: dto.isDailySpecial }),
       },
     });
   }

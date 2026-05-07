@@ -5,10 +5,10 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CreateSubscriptionDto, RecordPaymentDto, ReportPaymentDto } from './dto/create-subscription.dto';
 
 const PLAN_PRICES: Record<string, { mensuel: number; annuel: number }> = {
-  free:       { mensuel: 0,      annuel: 0 },
-  pro:        { mensuel: 4900,   annuel: 49000 },
-  business:   { mensuel: 14900,  annuel: 149000 },
-  enterprise: { mensuel: 49000,  annuel: 490000 },
+  free: { mensuel: 0, annuel: 0 },
+  pro: { mensuel: 4900, annuel: 49000 },
+  business: { mensuel: 14900, annuel: 149000 },
+  enterprise: { mensuel: 49000, annuel: 490000 },
 };
 
 @Injectable()
@@ -16,7 +16,7 @@ export class SubscriptionsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-  ) {}
+  ) { }
 
   // ── Admin : créer/activer un abonnement ──────────────────────────
   async createSubscription(dto: CreateSubscriptionDto) {

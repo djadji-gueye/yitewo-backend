@@ -72,6 +72,21 @@ export class PartnerProductsService {
       throw new NotFoundException('Produit introuvable');
     }
 
+    // Si on active le plat du jour, vérifier la limite (max 5)
+    if (dto.isDailySpecial === true) {
+      const partner = await this.prisma.partner.findFirst({
+        where: { products: { some: { id } } },
+        select: { plan: true },
+      });
+      const MAX_DAILY = (partner?.plan === 'pro' || partner?.plan === 'business' || partner?.plan === 'enterprise') ? 5 : 3;
+      const currentCount = await this.prisma.partnerProduct.count({
+        where: { partnerId, isDailySpecial: true, id: { not: id } },
+      });
+      if (currentCount >= MAX_DAILY) {
+        throw new Error(`Limite de ${MAX_DAILY} plats du jour atteinte.`);
+      }
+    }
+
     return this.prisma.partnerProduct.update({
       where: { id },
       data: {
@@ -81,8 +96,34 @@ export class PartnerProductsService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        ...(dto.isDailySpecial !== undefined && { isDailySpecial: dto.isDailySpecial }),
       },
     });
+  }
+
+  // ── Toggle plat du jour ───────────────────────────────────
+  async toggleDailySpecial(id: string, token: string, isDailySpecial: boolean) {
+    const partnerId = await this.verifyToken(token);
+    const product = await this.prisma.partnerProduct.findUnique({ where: { id } });
+    if (!product || product.partnerId !== partnerId) {
+      throw new NotFoundException('Produit introuvable');
+    }
+
+    if (isDailySpecial) {
+      const partner = await this.prisma.partner.findUnique({
+        where: { id: partnerId },
+        select: { plan: true },
+      });
+      const MAX_DAILY = (partner?.plan === 'pro' || partner?.plan === 'business' || partner?.plan === 'enterprise') ? 5 : 3;
+      const currentCount = await this.prisma.partnerProduct.count({
+        where: { partnerId, isDailySpecial: true, id: { not: id } },
+      });
+      if (currentCount >= MAX_DAILY) {
+        throw new Error(`Limite de ${MAX_DAILY} plats du jour atteinte. Désactivez-en un d'abord.`);
+      }
+    }
+
+    return this.prisma.partnerProduct.update({ where: { id }, data: { isDailySpecial } });
   }
 
   // ── Toggle actif/masqué ───────────────────────────────────
@@ -116,7 +157,7 @@ export class PartnerProductsService {
 
     const products = await this.prisma.partnerProduct.findMany({
       where: { partnerId: partner.id, isActive: true },
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      orderBy: [{ isDailySpecial: 'desc' }, { category: 'asc' }, { name: 'asc' }],
     });
 
     return { partner, products };
