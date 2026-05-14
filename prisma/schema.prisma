@@ -84,16 +84,33 @@ enum OrderStatus {
 // ─────────────────────────────────────────────
 
 model ServiceRequest {
-  id            String               @id @default(uuid())
-  service       String
-  city          String
-  quarter       String
-  description   String?
-  customerName  String?
-  customerPhone String?
-  status        ServiceRequestStatus @default(PENDING)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  id                  String               @id @default(uuid())
+  service             String
+  serviceIcon         String?
+  city                String
+  quarter             String
+  description         String?
+  budget              String?
+  customerName        String?
+  customerPhone       String?
+  status              ServiceRequestStatus @default(PENDING)
+  assignedPartnerId   String?
+  assignedPartnerName String?
+  assignedPartner     Partner?             @relation("AssignedRequests", fields: [assignedPartnerId], references: [id])
+  interests           ServiceInterest[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model ServiceInterest {
+  id        String         @id @default(uuid())
+  requestId String
+  partnerId String
+  createdAt DateTime       @default(now())
+  request   ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  partner   Partner        @relation("ServiceInterests", fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, partnerId])
 }
 
 enum ServiceRequestStatus {
@@ -195,7 +212,9 @@ model Partner {
   email             String?
   bannerUrl         String?
 
-  serviceCategories String[]  @default([])
+  serviceCategories   String[]         @default([])
+  assignedRequests    ServiceRequest[] @relation("AssignedRequests")
+  serviceInterests    ServiceInterest[] @relation("ServiceInterests")
   profileImageUrl   String?
   openingHours      Json?
 
@@ -335,6 +354,8 @@ enum NotificationType {
   NEW_OPPORTUNITY_INTEREST
   NEW_OPPORTUNITY_SUBMISSION
   NEW_PARTNER
+  SERVICE_INTEREST
+  MISSION_ASSIGNED
 }
 
 // ─────────────────────────────────────────────
