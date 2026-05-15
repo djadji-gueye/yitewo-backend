@@ -106,7 +106,7 @@ export class EmailService {
       </div>
       <p class="text">Notre équipe va examiner votre dossier sous <strong>24 à 48 heures</strong>. Vous recevrez un email dès que votre compte sera activé.</p>
       <p class="text">En attendant, si vous avez des questions, n'hésitez pas à nous écrire ou nous contacter sur WhatsApp.</p>
-      <a href="https://wa.me/221770698080?text=Bonjour Yitewo, j'ai soumis ma candidature et j'aimerais des informations" class="btn">Nous contacter</a>
+      <a href="https://wa.me/221767801929?text=Bonjour Yitewo, j'ai soumis ma candidature et j'aimerais des informations" class="btn">Nous contacter</a>
       <p class="text" style="color:#aaa;font-size:12px">Référence : ${partnerName} · ${new Date().toLocaleDateString('fr-SN')}</p>
     `);
     await this.send(to, `✅ Candidature reçue — Yitewo`, html);
