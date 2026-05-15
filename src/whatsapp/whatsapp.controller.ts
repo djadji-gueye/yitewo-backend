@@ -5,13 +5,7 @@ import {
 import { Response } from 'express';
 import { WhatsappService } from './whatsapp.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-
-export class UpsertConfigDto {
-  phoneId: string;
-  token: string;
-  verifyToken: string;
-  groqApiKey: string;
-}
+import { UpsertConfigDto } from './dto/whatsapp-upsert.dto';
 
 @Controller('whatsapp')
 export class WhatsappController {

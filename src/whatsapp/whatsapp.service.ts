@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UpsertConfigDto } from './dto/whatsapp-upsert.dto';
 
 const WA_API = 'https://graph.facebook.com/v19.0';
 const GROQ_API = 'https://api.groq.com/openai/v1/chat/completions';
@@ -33,12 +34,7 @@ export class WhatsappService {
     };
   }
 
-  async upsertConfig(dto: {
-    phoneId: string;
-    token: string;
-    verifyToken: string;
-    groqApiKey: string;
-  }) {
+  async upsertConfig(dto: UpsertConfigDto) {
     const existing = await (this.prisma as any).whatsappConfig.findFirst();
 
     const data = {
