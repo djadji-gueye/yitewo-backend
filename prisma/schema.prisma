@@ -347,6 +347,20 @@ model Notification {
   createdAt DateTime         @default(now())
 }
 
+model WhatsappConfig {
+  id           String   @id @default(uuid())
+  phoneId      String
+  token        String
+  verifyToken  String   @default("yitewo_webhook_2024")
+  groqApiKey   String
+  isConnected  Boolean  @default(false)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("WhatsappConfig")
+}
+
 enum NotificationType {
   NEW_ORDER
   ORDER_STATUS_CHANGED

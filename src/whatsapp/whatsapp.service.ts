@@ -13,6 +13,80 @@ export class WhatsappService {
     setInterval(() => this.cleanOldConversations(), 10 * 60 * 1000);
   }
 
+  // ─────────────────────────────────────────────────────
+  //  CONFIG : lecture / écriture en base (persistance)
+  // ─────────────────────────────────────────────────────
+
+  async getConfig() {
+    // On utilise toujours la première (et unique) ligne de config
+    const config = await (this.prisma as any).whatsappConfig.findFirst();
+    if (!config) return null;
+    return {
+      phoneId: config.phoneId,
+      // On ne renvoie pas le token complet pour la sécurité — on masque
+      tokenMasked: config.token ? `${config.token.substring(0, 8)}${'*'.repeat(12)}` : '',
+      verifyToken: config.verifyToken,
+      // On ne renvoie pas la groqApiKey en clair non plus
+      groqKeyMasked: config.groqApiKey ? `${config.groqApiKey.substring(0, 8)}${'*'.repeat(12)}` : '',
+      isConnected: config.isConnected,
+      updatedAt: config.updatedAt,
+    };
+  }
+
+  async upsertConfig(dto: {
+    phoneId: string;
+    token: string;
+    verifyToken: string;
+    groqApiKey: string;
+  }) {
+    const existing = await (this.prisma as any).whatsappConfig.findFirst();
+
+    const data = {
+      phoneId: dto.phoneId,
+      token: dto.token,
+      verifyToken: dto.verifyToken || 'yitewo_webhook_2024',
+      groqApiKey: dto.groqApiKey,
+      isConnected: !!(dto.token && dto.phoneId && dto.groqApiKey),
+    };
+
+    if (existing) {
+      return (this.prisma as any).whatsappConfig.update({
+        where: { id: existing.id },
+        data,
+      });
+    } else {
+      return (this.prisma as any).whatsappConfig.create({ data });
+    }
+  }
+
+  // ─────────────────────────────────────────────────────
+  //  Lecture des credentials (DB en priorité, .env en fallback)
+  // ─────────────────────────────────────────────────────
+
+  private async getCredentials(): Promise<{
+    token: string;
+    phoneId: string;
+    verifyToken: string;
+    groqApiKey: string;
+  }> {
+    const config = await (this.prisma as any).whatsappConfig.findFirst();
+    return {
+      token: config?.token || process.env.WHATSAPP_TOKEN || '',
+      phoneId: config?.phoneId || process.env.WHATSAPP_PHONE_ID || '',
+      verifyToken: config?.verifyToken || process.env.WHATSAPP_VERIFY_TOKEN || 'yitewo_webhook_2024',
+      groqApiKey: config?.groqApiKey || process.env.GROQ_API_KEY || '',
+    };
+  }
+
+  // ─────────────────────────────────────────────────────
+  //  WEBHOOK
+  // ─────────────────────────────────────────────────────
+
+  async verifyWebhook(mode: string, token: string): Promise<boolean> {
+    const creds = await this.getCredentials();
+    return mode === 'subscribe' && token === creds.verifyToken;
+  }
+
   async handleWebhook(body: any) {
     const value = body?.entry?.[0]?.changes?.[0]?.value;
     if (!value?.messages) return;
@@ -34,9 +108,18 @@ export class WhatsappService {
     }
   }
 
+  // ─────────────────────────────────────────────────────
+  //  AGENT IA
+  // ─────────────────────────────────────────────────────
+
   async processMessage(phone: string, userMessage: string): Promise<string> {
     const conv = this.getConversation(phone);
     const context = await this.buildContext();
+    const creds = await this.getCredentials();
+
+    if (!creds.groqApiKey) {
+      return 'Agent IA non configuré. Veuillez configurer la clé Groq dans les paramètres.';
+    }
 
     conv.messages.push({ role: 'user', content: userMessage });
 
@@ -44,7 +127,7 @@ export class WhatsappService {
       const response = await fetch(GROQ_API, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          'Authorization': `Bearer ${creds.groqApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -155,18 +238,21 @@ Réponds toujours de façon naturelle et chaleureuse, comme un conseiller séné
     }
   }
 
+  // ─────────────────────────────────────────────────────
+  //  ENVOI WhatsApp
+  // ─────────────────────────────────────────────────────
+
   async sendMessage(to: string, text: string) {
-    const token = process.env.WHATSAPP_TOKEN;
-    const phoneId = process.env.WHATSAPP_PHONE_ID;
-    if (!token || !phoneId) {
-      this.logger.warn('⚠️ WHATSAPP_TOKEN ou WHATSAPP_PHONE_ID manquant');
+    const creds = await this.getCredentials();
+    if (!creds.token || !creds.phoneId) {
+      this.logger.warn('⚠️ WHATSAPP_TOKEN ou WHATSAPP_PHONE_ID manquant (DB et .env)');
       return;
     }
     try {
-      const res = await fetch(`${WA_API}/${phoneId}/messages`, {
+      const res = await fetch(`${WA_API}/${creds.phoneId}/messages`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${creds.token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -186,13 +272,12 @@ Réponds toujours de façon naturelle et chaleureuse, comme un conseiller séné
   }
 
   private async markRead(messageId: string) {
-    const token = process.env.WHATSAPP_TOKEN;
-    const phoneId = process.env.WHATSAPP_PHONE_ID;
-    if (!token || !phoneId) return;
+    const creds = await this.getCredentials();
+    if (!creds.token || !creds.phoneId) return;
     try {
-      await fetch(`${WA_API}/${phoneId}/messages`, {
+      await fetch(`${WA_API}/${creds.phoneId}/messages`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messaging_product: 'whatsapp',
           status: 'read',
@@ -201,6 +286,10 @@ Réponds toujours de façon naturelle et chaleureuse, comme un conseiller séné
       });
     } catch { }
   }
+
+  // ─────────────────────────────────────────────────────
+  //  GESTION DES CONVERSATIONS EN MÉMOIRE
+  // ─────────────────────────────────────────────────────
 
   private getConversation(phone: string) {
     const existing = this.conversations.get(phone);
