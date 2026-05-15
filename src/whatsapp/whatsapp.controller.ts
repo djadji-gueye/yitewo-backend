@@ -1,21 +1,32 @@
-import { Controller, Get, Post, Body, Query, Res, HttpCode } from '@nestjs/common';
+import {
+  Controller, Get, Post, Body, Query,
+  Res, HttpCode, UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { WhatsappService } from './whatsapp.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
+export class UpsertConfigDto {
+  phoneId: string;
+  token: string;
+  verifyToken: string;
+  groqApiKey: string;
+}
 
 @Controller('whatsapp')
 export class WhatsappController {
-  constructor(private readonly service: WhatsappService) {}
+  constructor(private readonly service: WhatsappService) { }
 
   // ── Vérification webhook Meta (GET) ──────────────────────────────
   @Get('webhook')
-  verify(
+  async verify(
     @Query('hub.mode') mode: string,
     @Query('hub.verify_token') token: string,
     @Query('hub.challenge') challenge: string,
     @Res() res: Response,
   ) {
-    const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'yitewo_webhook_2024';
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    const ok = await this.service.verifyWebhook(mode, token);
+    if (ok) {
       console.log('✅ WhatsApp webhook vérifié');
       return res.status(200).send(challenge);
     }
@@ -41,7 +52,29 @@ export class WhatsappController {
       body.phone || '221700000000',
       body.message,
     );
-    // Retourner directement la string pour le dashboard
     return { reply };
+  }
+
+  // ── Lire la config WhatsApp (dashboard) ─────────────────────────
+  @Get('config')
+  @UseGuards(JwtAuthGuard)
+  async getConfig() {
+    const config = await this.service.getConfig();
+    return config ?? { isConnected: false };
+  }
+
+  // ── Sauvegarder la config WhatsApp en base ───────────────────────
+  @Post('config')
+  @UseGuards(JwtAuthGuard)
+  async saveConfig(@Body() dto: UpsertConfigDto) {
+    if (!dto.phoneId || !dto.token || !dto.groqApiKey) {
+      return { success: false, error: 'Champs manquants (phoneId, token, groqApiKey)' };
+    }
+    const saved = await this.service.upsertConfig(dto);
+    return {
+      success: true,
+      isConnected: saved.isConnected,
+      updatedAt: saved.updatedAt,
+    };
   }
 }
