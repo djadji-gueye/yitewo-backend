@@ -17,7 +17,7 @@ export class PartnersService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
-  ) {}
+  ) { }
 
   // ── Création partenaire ────────────────────────────────────
   async create(data: CreatePartnerDto) {
@@ -78,8 +78,8 @@ export class PartnersService {
       orderBy: { createdAt: 'desc' },
       include: {
         categories: { select: { id: true, name: true } },
-        reviews:    { select: { rating: true } },
-        promos:     { where: { isActive: true, endsAt: { gt: new Date() } }, take: 1 },
+        reviews: { select: { rating: true } },
+        promos: { where: { isActive: true, endsAt: { gt: new Date() } }, take: 1 },
       },
     });
   }
@@ -108,7 +108,7 @@ export class PartnersService {
         plan: true,
         openingHours: true,
         categories: { select: { name: true } },
-        reviews:    { select: { rating: true } },
+        reviews: { select: { rating: true } },
         promos: {
           where: { isActive: true, endsAt: { gt: new Date() } },
           select: { title: true, discount: true, endsAt: true },
@@ -147,6 +147,8 @@ export class PartnersService {
         type: true,
         city: true,
         zone: true,
+        lat: true,
+        lng: true,
         contact: true,
         message: true,
         serviceCategories: true,
