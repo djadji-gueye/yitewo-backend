@@ -3,9 +3,11 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 import { CreatePartnerDto } from './dto/create-partner.dto';
 
 const PLAN_ORDER: Record<string, number> = {
@@ -14,9 +16,12 @@ const PLAN_ORDER: Record<string, number> = {
 
 @Injectable()
 export class PartnersService {
+  private readonly logger = new Logger(PartnersService.name);
+
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private email: EmailService,
   ) { }
 
   // ── Création partenaire ────────────────────────────────────
@@ -227,14 +232,78 @@ export class PartnersService {
   }
 
   // ── Update (admin) ─────────────────────────────────────────
-  updatePartner(id: string, data: {
+  // 🔥 UPDATED: Maintenant envoie un email si isActive passe de false à true
+  async updatePartner(id: string, data: {
     isActive?: boolean;
     profileImageUrl?: string;
     plan?: string;
     planExpiresAt?: Date;
     bannerUrl?: string;
   }) {
-    return this.prisma.partner.update({ where: { id }, data });
+    // Récupérer le partenaire avant la mise à jour pour comparer
+    const oldPartner = await this.prisma.partner.findUnique({
+      where: { id },
+      select: { isActive: true, name: true, email: true, type: true },
+    });
+
+    if (!oldPartner) throw new NotFoundException('Partenaire introuvable');
+
+    // Faire la mise à jour
+    const updatedPartner = await this.prisma.partner.update({
+      where: { id },
+      data,
+      select: { id: true, name: true, email: true, type: true, isActive: true },
+    });
+
+    // 📧 Si activation : envoyer l'email de confirmation
+    if (data.isActive === true && !oldPartner.isActive && updatedPartner.email) {
+      try {
+        // Générer ou récupérer un token portail
+        let portalToken = '';
+        const existingToken = await this.prisma.partnerToken.findUnique({
+          where: { partnerId: id },
+          select: { token: true },
+        });
+
+        if (existingToken) {
+          portalToken = existingToken.token;
+        } else {
+          const newToken = await this.prisma.partnerToken.create({
+            data: { partnerId: id },
+            select: { token: true },
+          });
+          portalToken = newToken.token;
+        }
+
+        // Envoyer l'email approprié selon le type
+        if (updatedPartner.type === 'Prestataire') {
+          await this.email.sendCompteActivePrestataire(
+            updatedPartner.email,
+            updatedPartner.name,
+          );
+          this.logger.log(
+            `📧 Email prestataire envoyé à ${updatedPartner.email} (${updatedPartner.name})`,
+          );
+        } else if (updatedPartner.type === 'Marchand' || updatedPartner.type === 'Restaurant') {
+          await this.email.sendCompteActive(
+            updatedPartner.email,
+            updatedPartner.name,
+            updatedPartner.type,
+            portalToken,
+          );
+          this.logger.log(
+            `📧 Email activation envoyé à ${updatedPartner.email} (${updatedPartner.name})`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `❌ Erreur lors de l'envoi d'email pour ${updatedPartner.name}: ${error.message}`,
+        );
+        // Ne pas lever l'erreur — le partenaire est activé même si l'email échoue
+      }
+    }
+
+    return updatedPartner;
   }
 
   // ── Update profil via portal token (partenaire) ────────────
