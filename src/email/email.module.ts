@@ -2,11 +2,12 @@
 import { Module, Global } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { EmailTestController } from './email-test.controller';
+import { EmailBroadcastController } from './email-broadcast.controller';
 
 @Global() // Global = disponible partout sans re-importer
 @Module({
     providers: [EmailService],
-    controllers: [EmailTestController],
+    controllers: [EmailTestController, EmailBroadcastController],
     exports: [EmailService],
 })
 export class EmailModule { }

@@ -7,16 +7,24 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from './email.service';
+import { IsIn, IsNotEmpty, IsString } from 'class-validator';
 
-class BroadcastDto {
+export class BroadcastDto {
+    @IsString()
+    @IsNotEmpty()
     subject: string;
+
+    @IsString()
+    @IsNotEmpty()
     body: string;
+
+    @IsIn(['all', 'Marchand', 'Restaurant', 'Prestataire'])
     targetType: 'all' | 'Marchand' | 'Restaurant' | 'Prestataire';
 }
 
 @Controller('admin/email-broadcast')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles('SUPER_ADMIN')
 export class EmailBroadcastController {
     constructor(
         private prisma: PrismaService,
