@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
+import { PushService } from '../push/push.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
@@ -12,6 +13,7 @@ export class OrdersService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private email: EmailService,
+    private push: PushService,
   ) { }
 
   async create(dto: CreateOrderDto) {
@@ -47,6 +49,24 @@ export class OrdersService {
       `${dto.items.length} article(s) — ${dto.totalPrice.toLocaleString()} FCFA · ${dto.quarter}, ${dto.city}`,
       order.id,
     );
+
+    // Push admins (dashboard) — toujours
+    this.push.sendToAdmins({
+      title: '🛒 Nouvelle commande',
+      body: `${dto.totalPrice.toLocaleString()} FCFA · ${dto.quarter}, ${dto.city}`,
+      url: `/dashboard/commandes`,
+      tag: `order-${order.id}`,
+    }).catch(() => null);
+
+    // Push au partenaire concerné (partner-portal) — s'il y en a un
+    if (order.partnerId) {
+      this.push.sendToPartner(order.partnerId, {
+        title: '🛒 Nouvelle commande !',
+        body: `${dto.items.length} article(s) — ${dto.totalPrice.toLocaleString()} FCFA`,
+        url: `/partner-portal/${(order.partner as any)?.token?.token ?? ''}/commandes`,
+        tag: `order-${order.id}`,
+      }).catch(() => null);
+    }
 
     // Email au partenaire si email disponible
     if (order.partner && (order.partner as any).email) {

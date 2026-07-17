@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PushService } from '../push/push.service';
 import { CreateServiceRequestDto } from './dto/create-service-request.dto';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class ServiceRequestsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private push: PushService,
   ) { }
 
   // ─── Résoudre un partnerToken → partnerId ──────────────────
@@ -39,6 +41,14 @@ export class ServiceRequestsService {
       `${dto.quarter}, ${dto.city}${dto.customerName ? ' — ' + dto.customerName : ''}`,
       req.id,
     );
+
+    this.push.sendToAdmins({
+      title: `🔧 Nouveau service : ${dto.service}`,
+      body: `${dto.quarter}, ${dto.city}`,
+      url: '/dashboard/services',
+      tag: `service-request-${req.id}`,
+    }).catch(() => null);
+
     return req;
   }
 
@@ -197,6 +207,7 @@ export class ServiceRequestsService {
   async assign(requestId: string, partnerId: string) {
     const partner = await this.prisma.partner.findUnique({
       where: { id: partnerId },
+      include: { token: true },
     });
     if (!partner) throw new NotFoundException('Prestataire introuvable');
 
@@ -216,6 +227,13 @@ export class ServiceRequestsService {
       `Mission : ${updated.service} — ${updated.quarter}, ${updated.city}`,
       requestId,
     );
+
+    this.push.sendToPartner(partnerId, {
+      title: '🎯 Nouvelle mission assignée !',
+      body: `${updated.service} — ${updated.quarter}, ${updated.city}`,
+      url: `/prestataire-portal/${partner.token?.token ?? ''}/missions`,
+      tag: `mission-${requestId}`,
+    }).catch(() => null);
 
     return updated;
   }
