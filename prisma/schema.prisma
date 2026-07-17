@@ -373,6 +373,35 @@ enum NotificationType {
 }
 
 // ─────────────────────────────────────────────
+// PUSH NOTIFICATIONS (PWA)
+// ─────────────────────────────────────────────
+
+enum PushOwnerType {
+  PARTNER   // restaurant / marchand / prestataire (partner-portal + prestataire-portal)
+  ADMIN     // équipe Yitewo (/dashboard)
+}
+
+model PushSubscription {
+  id          String        @id @default(uuid())
+  ownerType   PushOwnerType
+  ownerId     String        // Partner.id ou Admin.id selon ownerType
+
+  endpoint    String        @unique
+  p256dh      String
+  auth        String
+
+  userAgent   String?
+  label       String?       // ex: "iPhone de Fatou", pratique si plusieurs appareils
+  isActive    Boolean       @default(true)
+  lastSeenAt  DateTime      @default(now())
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([ownerType, ownerId])
+}
+
+// ─────────────────────────────────────────────
 // ADMIN
 // ─────────────────────────────────────────────
 

@@ -18,6 +18,7 @@ import { UploadModule } from './upload/upload.module';
 import { EmailModule } from './email/email.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { PushModule } from './push/push.module';
 
 @Module({
   imports: [
@@ -39,7 +40,8 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
     SocialModule,
     HealthModule,
     WhatsappModule,
-    SubscriptionsModule
+    SubscriptionsModule,
+    PushModule
   ],
 })
 export class AppModule { }
