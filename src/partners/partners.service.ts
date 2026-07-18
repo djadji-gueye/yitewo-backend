@@ -26,6 +26,9 @@ export class PartnersService {
 
   // ── Création partenaire ────────────────────────────────────
   async create(data: CreatePartnerDto) {
+    // ⚠️ Email non forcé côté back : des Partner existants ont déjà email=null en base.
+    // La contrainte "obligatoire pour Marchand/Restaurant" est gérée uniquement côté
+    // front (PartnerForm.tsx) pour ne pas casser les enregistrements/updates historiques.
     let slug: string | undefined;
 
     if ((data.type === 'Marchand' || data.type === 'Restaurant') && !data.slug) {

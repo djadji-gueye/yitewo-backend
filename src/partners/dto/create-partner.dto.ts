@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsArray, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsArray, IsNumber, IsEmail } from 'class-validator';
 
 export class CreatePartnerDto {
   @IsString()
@@ -30,8 +30,11 @@ export class CreatePartnerDto {
   @IsNumber()
   lng?: number;
 
+  // Optionnel au niveau DTO (les Prestataires peuvent s'inscrire sans email).
+  // ⚠️ Obligatoire pour type=Marchand/Restaurant : vérifié dans PartnersService.create()
+  // pour donner un message d'erreur clair plutôt qu'un 400 générique de class-validator.
   @IsOptional()
-  @IsString()
+  @IsEmail({}, { message: "L'adresse email n'est pas valide" })
   email?: string;
 
   @IsString()

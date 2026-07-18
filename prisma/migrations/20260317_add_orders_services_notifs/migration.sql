@@ -99,18 +99,7 @@ CREATE TABLE IF NOT EXISTS "OpportunitySubmission" (
 );
 
 -- Partner updatedAt column rename
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM information_schema.columns
-    WHERE table_name = 'Partner'
-      AND column_name = 'updateAt'
-  ) THEN
-    ALTER TABLE "Partner"
-      RENAME COLUMN "updateAt" TO "updatedAt";
-  END IF;
-END $$;
+ALTER TABLE "Partner" RENAME COLUMN "updateAt" TO "updatedAt" IF EXISTS;
 
 -- Notifications
 CREATE TABLE IF NOT EXISTS "Notification" (

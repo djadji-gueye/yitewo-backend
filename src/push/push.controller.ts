@@ -1,5 +1,5 @@
 import {
-  BadRequestException, Body, Controller, Get, Post, UnauthorizedException, UseGuards,
+  BadRequestException, Body, Controller, Get, Post, Query, UnauthorizedException, UseGuards,
 } from '@nestjs/common';
 import { PushOwnerType } from '@prisma/client';
 import { PushService } from './push.service';
@@ -14,6 +14,22 @@ export class PushController {
   @Get('vapid-public-key')
   getPublicKey() {
     return this.push.getPublicKey();
+  }
+
+  // ── Compteur de badge (resync à l'ouverture de l'app) ──────
+
+  @Get('badge/partner')
+  async getPartnerBadge(@Query('token') token: string) {
+    if (!token) throw new BadRequestException('token requis');
+    const partnerId = await this.push.resolvePartnerIdFromToken(token);
+    if (!partnerId) throw new UnauthorizedException('Token invalide');
+    return { count: await this.push.getPartnerBadgeCount(partnerId) };
+  }
+
+  @Get('badge/admin')
+  @UseGuards(JwtAuthGuard)
+  async getAdminBadge() {
+    return { count: await this.push.getAdminBadgeCount() };
   }
 
   // ── Partenaires (restaurant / marchand / prestataire) ──────

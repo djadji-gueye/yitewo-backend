@@ -9,6 +9,7 @@ export interface PushPayload {
   url?: string;       // deep-link à ouvrir au clic (ex: /partner-portal/TOKEN/commandes)
   tag?: string;        // regroupe les notifs similaires (ex: "order-123")
   icon?: string;
+  badgeCount?: number; // pastille numérique sur l'icône (Badging API)
   data?: Record<string, any>;
 }
 
@@ -68,6 +69,25 @@ export class PushService {
 
   // ── Envoi ───────────────────────────────────────────────
 
+  // ── Compteurs de badge (icône PWA) ──────────────────────
+  // Basé sur le travail réellement en attente plutôt qu'un flag "lu/non-lu" à
+  // maintenir en plus : le badge redescend tout seul quand le partenaire traite
+  // ses commandes/missions via les actions qui existent déjà.
+
+  async getPartnerBadgeCount(partnerId: string): Promise<number> {
+    const [pendingOrders, activeMissions] = await Promise.all([
+      this.prisma.order.count({ where: { partnerId, status: 'PENDING' } }),
+      this.prisma.serviceRequest.count({
+        where: { assignedPartnerId: partnerId, status: { in: ['ASSIGNED', 'IN_PROGRESS'] } },
+      }),
+    ]);
+    return pendingOrders + activeMissions;
+  }
+
+  async getAdminBadgeCount(): Promise<number> {
+    return this.prisma.notification.count({ where: { isRead: false } });
+  }
+
   async sendToOwner(ownerType: PushOwnerType, ownerId: string, payload: PushPayload) {
     if (!this.enabled) return { sent: 0, failed: 0 };
 
@@ -78,15 +98,17 @@ export class PushService {
   }
 
   async sendToPartner(partnerId: string, payload: PushPayload) {
-    return this.sendToOwner(PushOwnerType.PARTNER, partnerId, payload);
+    const badgeCount = payload.badgeCount ?? (await this.getPartnerBadgeCount(partnerId));
+    return this.sendToOwner(PushOwnerType.PARTNER, partnerId, { ...payload, badgeCount });
   }
 
   async sendToAdmins(payload: PushPayload) {
     if (!this.enabled) return { sent: 0, failed: 0 };
+    const badgeCount = payload.badgeCount ?? (await this.getAdminBadgeCount());
     const subs = await this.prisma.pushSubscription.findMany({
       where: { ownerType: PushOwnerType.ADMIN, isActive: true },
     });
-    return this.dispatch(subs, payload);
+    return this.dispatch(subs, { ...payload, badgeCount });
   }
 
   private async dispatch(
@@ -110,6 +132,7 @@ export class PushService {
               url: payload.url || '/',
               tag: payload.tag,
               icon: payload.icon || '/icons/icon-192.png',
+              badgeCount: payload.badgeCount,
               data: payload.data || {},
             }),
           );
