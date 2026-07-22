@@ -212,4 +212,23 @@ export class EmailService {
     `);
     await this.send(to, `📢 ${subject} — Yitewo`, html);
   }
+
+  // ══════════════════════════════════════════════════════
+  // 6. INVITATION PROSPECT → liste externe (pas encore partenaires)
+  // Utilisé pour inviter des boutiques/prestataires externes à rejoindre Yitewo
+  // ══════════════════════════════════════════════════════
+  async sendInvitationProspect(to: string, subject: string, body: string) {
+    const signupUrl = 'https://yitewo.com/partners';
+    const html = this.layout(`
+      <p class="greeting">Bonjour 👋</p>
+      ${body.split('\n').filter(Boolean).map((p) => `<p class="text">${p}</p>`).join('')}
+      <a href="${signupUrl}" class="btn">Créer mon compte gratuit sur Yitewo →</a>
+      <p class="text" style="margin-top:20px;color:#aaa;font-size:12px">
+        Vous recevez cet email car votre boutique est référencée publiquement sur un annuaire en ligne.
+        Si vous ne souhaitez plus recevoir ce type de message, répondez simplement "STOP" à cet email
+        et nous ne vous recontacterons pas.
+      </p>
+    `);
+    await this.send(to, `${subject} — Yitewo`, html);
+  }
 }
