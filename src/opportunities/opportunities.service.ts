@@ -52,12 +52,10 @@ export class OpportunitiesService {
         { location: { contains: search, mode: 'insensitive' } },
       ];
     }
+    // Si isExternal est défini (true ou false), utiliser ce filtre
+    // Sinon (undefined) = afficher TOUTES les annonces (internes + externes)
     if (isExternal !== undefined) {
       where.isExternal = isExternal;
-    } else
-    // desactiver Extern Expat, coinAfrique
-    {
-      where.isExternal = false;
     }
 
     const [items, total] = await this.prisma.$transaction([
