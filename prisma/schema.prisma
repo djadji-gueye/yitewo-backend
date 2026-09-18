@@ -32,10 +32,6 @@ model Product {
   orderItems OrderItem[]
 }
 
-// ─────────────────────────────────────────────
-// COMMANDES
-// ─────────────────────────────────────────────
-
 model Order {
   id           String      @id @default(uuid())
   status       OrderStatus @default(PENDING)
@@ -60,28 +56,15 @@ model OrderItem {
   partnerProductId String?
   quantity         Int
   unitPrice        Int
-
   order          Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product        Product?         @relation(fields: [productId], references: [id])
   partnerProduct PartnerProduct?  @relation(fields: [partnerProductId], references: [id])
-
   @@index([orderId])
   @@index([productId])
   @@index([partnerProductId])
 }
 
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  PREPARING
-  DELIVERING
-  DELIVERED
-  CANCELLED
-}
-
-// ─────────────────────────────────────────────
-// SERVICES
-// ─────────────────────────────────────────────
+enum OrderStatus { PENDING CONFIRMED PREPARING DELIVERING DELIVERED CANCELLED }
 
 model ServiceRequest {
   id                  String               @id @default(uuid())
@@ -109,21 +92,10 @@ model ServiceInterest {
   createdAt DateTime       @default(now())
   request   ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   partner   Partner        @relation("ServiceInterests", fields: [partnerId], references: [id], onDelete: Cascade)
-
   @@unique([requestId, partnerId])
 }
 
-enum ServiceRequestStatus {
-  PENDING
-  ASSIGNED
-  IN_PROGRESS
-  DONE
-  CANCELLED
-}
-
-// ─────────────────────────────────────────────
-// OPPORTUNITÉS
-// ─────────────────────────────────────────────
+enum ServiceRequestStatus { PENDING ASSIGNED IN_PROGRESS DONE CANCELLED }
 
 model Opportunity {
   id          String              @id @default(uuid())
@@ -162,13 +134,7 @@ model OpportunitySubmission {
   updatedAt   DateTime            @updatedAt
 }
 
-enum OpportunityCategory {
-  IMMOBILIER
-  EMPLOI
-  SERVICE
-  COMMERCE
-  FORMATION
-}
+enum OpportunityCategory { IMMOBILIER EMPLOI SERVICE COMMERCE FORMATION }
 
 model OpportunityInterest {
   id            String      @id @default(uuid())
@@ -180,20 +146,13 @@ model OpportunityInterest {
   opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 }
 
-enum SubmissionStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-// ─────────────────────────────────────────────
-// BUSINESS LISTINGS
-// ─────────────────────────────────────────────
+enum SubmissionStatus { PENDING APPROVED REJECTED }
 
 model BusinessListing {
   id               String                 @id @default(uuid())
   slug             String?                @unique
   googlePlaceId    String?                @unique
+  externalSourceId String?                @unique
   name             String
   category         String?
   city             String
@@ -217,24 +176,8 @@ model BusinessListing {
   updatedAt        DateTime               @updatedAt
 }
 
-enum BusinessListingSource {
-  GOOGLE
-  MANUAL
-  ADMIN
-  IMPORT
-}
-
-enum BusinessListingStatus {
-  DRAFT
-  PENDING
-  VISIBLE
-  VERIFIED
-  REJECTED
-}
-
-// ─────────────────────────────────────────────
-// PARTENAIRES (FUSION COMPLETE)
-// ─────────────────────────────────────────────
+enum BusinessListingSource { GOOGLE MANUAL ADMIN IMPORT OPENSTREETMAP }
+enum BusinessListingStatus { DRAFT PENDING VISIBLE VERIFIED REJECTED }
 
 model Partner {
   id                 String    @id @default(uuid())
@@ -246,40 +189,29 @@ model Partner {
   message            String?
   contact            String
   isActive           Boolean   @default(false)
-
   plan              String    @default("free")
   planExpiresAt     DateTime?
-
   address           String?
   lat               Float?
   lng               Float?
   email             String?
   bannerUrl         String?
-
   serviceCategories   String[]         @default([])
   assignedRequests    ServiceRequest[] @relation("AssignedRequests")
   serviceInterests    ServiceInterest[] @relation("ServiceInterests")
   profileImageUrl   String?
   openingHours      Json?
-
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-
   categories  Category[]     @relation("PartnerCategories")
   orders      Order[]
   products    PartnerProduct[]
   token       PartnerToken?
-
   followers   PartnerFollow[]
   reviews     PartnerReview[]
   promos      PartnerPromo[]
-
   subscriptions Subscription[]
 }
-
-// ─────────────────────────────────────────────
-// PARTNER FEATURES RESTORE
-// ─────────────────────────────────────────────
 
 model PartnerFollow {
   id        String   @id @default(uuid())
@@ -288,7 +220,6 @@ model PartnerFollow {
   name      String?
   createdAt DateTime @default(now())
   partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-
   @@unique([partnerId, phone])
 }
 
@@ -341,10 +272,6 @@ model PartnerProduct {
   orderItems    OrderItem[]
 }
 
-// ─────────────────────────────────────────────
-// SUBSCRIPTIONS (NEW)
-// ─────────────────────────────────────────────
-
 model Subscription {
   id          String    @id @default(uuid())
   partnerId   String
@@ -362,22 +289,18 @@ model Subscription {
 }
 
 model SubscriptionPayment {
-  id             String    @id @default(uuid())
+  id             String   @id @default(uuid())
   subscriptionId String
   subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   amount         Int
   method         String
   reference      String?
-  status         String      @default("pending")
+  status         String   @default("pending")
   paidAt         DateTime?
   confirmedBy    String?
   notes          String?
-  createdAt      DateTime    @default(now())
+  createdAt      DateTime @default(now())
 }
-
-// ─────────────────────────────────────────────
-// NOTIFICATIONS
-// ─────────────────────────────────────────────
 
 model Notification {
   id        String           @id @default(uuid())
@@ -396,56 +319,29 @@ model WhatsappConfig {
   verifyToken  String   @default("yitewo_webhook_2024")
   groqApiKey   String
   isConnected  Boolean  @default(false)
-
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
   @@map("WhatsappConfig")
 }
 
-enum NotificationType {
-  NEW_ORDER
-  ORDER_STATUS_CHANGED
-  NEW_SERVICE_REQUEST
-  NEW_OPPORTUNITY_INTEREST
-  NEW_OPPORTUNITY_SUBMISSION
-  NEW_PARTNER
-  SERVICE_INTEREST
-  MISSION_ASSIGNED
-}
-
-// ─────────────────────────────────────────────
-// PUSH NOTIFICATIONS (PWA)
-// ─────────────────────────────────────────────
-
-enum PushOwnerType {
-  PARTNER
-  ADMIN
-}
+enum NotificationType { NEW_ORDER ORDER_STATUS_CHANGED NEW_SERVICE_REQUEST NEW_OPPORTUNITY_INTEREST NEW_OPPORTUNITY_SUBMISSION NEW_PARTNER SERVICE_INTEREST MISSION_ASSIGNED }
+enum PushOwnerType { PARTNER ADMIN }
 
 model PushSubscription {
   id          String        @id @default(uuid())
   ownerType   PushOwnerType
   ownerId     String
-
   endpoint    String        @unique
   p256dh      String
   auth        String
-
   userAgent   String?
   label       String?
   isActive    Boolean       @default(true)
   lastSeenAt  DateTime      @default(now())
-
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-
   @@index([ownerType, ownerId])
 }
-
-// ─────────────────────────────────────────────
-// ADMIN
-// ─────────────────────────────────────────────
 
 model Admin {
   id           String   @id @default(uuid())
@@ -457,7 +353,4 @@ model Admin {
   updatedAt    DateTime @updatedAt
 }
 
-enum AdminRole {
-  SUPER_ADMIN
-  ADMIN
-}
+enum AdminRole { SUPER_ADMIN ADMIN }
