@@ -11,6 +11,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessesService } from './businesses.service';
 import { CreateBusinessListingDto } from './dto/create-business-listing.dto';
+import { ImportGoogleBusinessDto } from './dto/import-google-business.dto';
 import { UpdateBusinessListingStatusDto } from './dto/update-business-listing-status.dto';
 
 @Controller('businesses')
@@ -20,6 +21,11 @@ export class BusinessesController {
   @Post()
   create(@Body() dto: CreateBusinessListingDto) {
     return this.service.create(dto);
+  }
+
+  @Post('import/google')
+  importFromGoogle(@Body() dto: ImportGoogleBusinessDto) {
+    return this.service.importFromGoogle(dto);
   }
 
   @Get()

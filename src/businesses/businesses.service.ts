@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { BusinessListingSource, BusinessListingStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBusinessListingDto } from './dto/create-business-listing.dto';
+import { ImportGoogleBusinessDto } from './dto/import-google-business.dto';
 import { UpdateBusinessListingStatusDto } from './dto/update-business-listing-status.dto';
 
 @Injectable()
@@ -26,6 +27,19 @@ export class BusinessesService {
     return status === BusinessListingStatus.VISIBLE || status === BusinessListingStatus.VERIFIED;
   }
 
+  private extractCityFromGoogleResult(payload: any, fallback?: string) {
+    const components = payload?.address_components ?? [];
+    const cityCandidate = components.find((item: any) =>
+      Array.isArray(item?.types) && item.types.includes('locality'),
+    );
+
+    const subLocality = components.find((item: any) =>
+      Array.isArray(item?.types) && item.types.includes('sublocality'),
+    );
+
+    return this.normalizeText(cityCandidate?.long_name || subLocality?.long_name || fallback || 'Dakar');
+  }
+
   async create(data: CreateBusinessListingDto) {
     const name = this.normalizeText(data.name);
     const city = this.normalizeText(data.city);
@@ -35,6 +49,15 @@ export class BusinessesService {
     }
     if (!city) {
       throw new BadRequestException('La ville est obligatoire.');
+    }
+
+    if (data.googlePlaceId) {
+      const existingByGooglePlaceId = await this.prisma.businessListing.findUnique({
+        where: { googlePlaceId: data.googlePlaceId },
+      });
+      if (existingByGooglePlaceId) {
+        return existingByGooglePlaceId;
+      }
     }
 
     const baseSlug = this.slugify(`${name}-${city}`);
@@ -53,6 +76,7 @@ export class BusinessesService {
         name,
         city,
         slug,
+        googlePlaceId: data.googlePlaceId || null,
         address: this.normalizeText(data.address) || null,
         zone: this.normalizeText(data.zone) || null,
         phone: this.normalizeText(data.phone) || null,
@@ -67,6 +91,84 @@ export class BusinessesService {
     });
 
     return listing;
+  }
+
+  async importFromGoogle(dto: ImportGoogleBusinessDto) {
+    const query = this.normalizeText(dto.query);
+    if (!query) {
+      throw new BadRequestException('La requête de recherche Google est obligatoire.');
+    }
+
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (!apiKey) {
+      throw new BadRequestException(
+        'La clé GOOGLE_PLACES_API_KEY n’est pas configurée. Ajoutez-la dans les variables d’environnement.',
+      );
+    }
+
+    const sourceQuery = `${query} ${dto.city ?? ''}`.trim();
+    const findUrl = new URL('https://maps.googleapis.com/maps/api/place/findPlaceFromText/json');
+    findUrl.searchParams.set('input', sourceQuery);
+    findUrl.searchParams.set('inputtype', 'textquery');
+    findUrl.searchParams.set('fields', 'place_id,formatted_address,name,geometry,types');
+    findUrl.searchParams.set('key', apiKey);
+
+    const findResponse = await fetch(findUrl.toString());
+    const findData = await findResponse.json();
+
+    if (!findResponse.ok || findData?.status === 'ZERO_RESULTS' || !findData?.candidates?.length) {
+      throw new BadRequestException('Aucun commerce Google trouvé pour cette recherche.');
+    }
+
+    const candidate = findData.candidates[0];
+    const placeId = candidate.place_id;
+
+    const detailsUrl = new URL('https://maps.googleapis.com/maps/api/place/details/json');
+    detailsUrl.searchParams.set('place_id', placeId);
+    detailsUrl.searchParams.set('fields', 'place_id,name,formatted_address,formatted_phone_number,website,geometry,types,photos,address_components');
+    detailsUrl.searchParams.set('key', apiKey);
+
+    const detailsResponse = await fetch(detailsUrl.toString());
+    const detailsData = await detailsResponse.json();
+
+    if (!detailsResponse.ok || !detailsData?.result) {
+      throw new BadRequestException('Impossible de récupérer les détails du commerce Google.');
+    }
+
+    const result = detailsData.result;
+    const city = this.extractCityFromGoogleResult(result, dto.city || 'Dakar');
+    const name = this.normalizeText(result.name || query);
+    const address = this.normalizeText(result.formatted_address || dto.city || '');
+
+    const existing = await this.prisma.businessListing.findFirst({
+      where: {
+        OR: [
+          { googlePlaceId: placeId },
+          {
+            name: { equals: name, mode: 'insensitive' },
+            city: { equals: city, mode: 'insensitive' },
+          },
+        ],
+      },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.create({
+      name,
+      city,
+      address,
+      category: Array.isArray(result.types) ? result.types[0] : 'commerce',
+      phone: this.normalizeText(result.formatted_phone_number) || undefined,
+      website: this.normalizeText(result.website) || undefined,
+      latitude: result.geometry?.location?.lat ?? undefined,
+      longitude: result.geometry?.location?.lng ?? undefined,
+      source: BusinessListingSource.GOOGLE,
+      status: BusinessListingStatus.PENDING,
+      googlePlaceId: placeId,
+    });
   }
 
   async findAll(filters?: { city?: string; category?: string; status?: string }) {

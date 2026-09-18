@@ -4,6 +4,7 @@ CREATE TYPE "BusinessListingStatus" AS ENUM ('DRAFT', 'PENDING', 'VISIBLE', 'VER
 CREATE TABLE "BusinessListing" (
     "id" TEXT NOT NULL,
     "slug" TEXT,
+    "googlePlaceId" TEXT,
     "name" TEXT NOT NULL,
     "category" TEXT,
     "city" TEXT NOT NULL,
@@ -30,3 +31,6 @@ CREATE TABLE "BusinessListing" (
 
 CREATE UNIQUE INDEX "BusinessListing_slug_key"
     ON "BusinessListing"("slug");
+
+CREATE UNIQUE INDEX "BusinessListing_googlePlaceId_key"
+    ON "BusinessListing"("googlePlaceId");

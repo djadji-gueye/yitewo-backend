@@ -1,6 +1,7 @@
 model BusinessListing {
   id                String                 @id @default(uuid())
   slug              String?                @unique
+  googlePlaceId     String?                @unique
   name              String
   category          String?
   city              String

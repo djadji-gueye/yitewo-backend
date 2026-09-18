@@ -1,10 +1,14 @@
-import { IsEmail, IsEnum, IsNumber, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsEmail, IsEnum, IsNumber, IsOptional, IsString, Length } from 'class-validator';
 import { BusinessListingSource, BusinessListingStatus } from '@prisma/client';
 
 export class CreateBusinessListingDto {
   @IsOptional()
   @IsString()
   slug?: string;
+
+  @IsOptional()
+  @IsString()
+  googlePlaceId?: string;
 
   @IsString()
   @Length(2, 200)
