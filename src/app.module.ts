@@ -3,6 +3,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductsModule } from './products/products.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { BusinessesModule } from './businesses/businesses.module';
 import { PartnersModule } from './partners/partners.module';
 import { OrdersModule } from './orders/orders.module';
 import { ServiceRequestsModule } from './service-requests/service-requests.module';
@@ -28,6 +29,7 @@ import { PushModule } from './push/push.module';
     EmailModule,
     ProductsModule,
     CloudinaryModule,
+    BusinessesModule,
     PartnersModule,
     OrdersModule,
     ServiceRequestsModule,
@@ -41,7 +43,7 @@ import { PushModule } from './push/push.module';
     HealthModule,
     WhatsappModule,
     SubscriptionsModule,
-    PushModule
+    PushModule,
   ],
 })
-export class AppModule { }
+export class AppModule {}
