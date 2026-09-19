@@ -9,13 +9,12 @@ import { UpdateBusinessListingStatusDto } from './dto/update-business-listing-st
 
 @Controller('businesses')
 export class BusinessesController {
-  constructor(private readonly service: BusinessesService) {}
+  constructor(private readonly service: BusinessesService) { }
 
   @Post()
   create(@Body() dto: CreateBusinessListingDto) { return this.service.create(dto); }
 
   @Post('import/osm')
-  @UseGuards(JwtAuthGuard)
   importFromOsm(@Body() dto: ImportOsmBusinessDto) { return this.service.importFromOsm(dto); }
 
   @Get()
